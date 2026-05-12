@@ -1,5 +1,5 @@
-// api/tts.js — 火山引擎 豆包语音合成大模型 TTS 代理
-// 自动尝试多种 cluster + resource 组合
+// api/tts.js — 火山引擎 豆包语音合成 新版 API Key 接入
+// 使用 V3 单向流式 HTTP 接口
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -9,92 +9,140 @@ export default async function handler(req, res) {
   const { text } = req.body;
   if (!text) return res.status(400).json({ error: 'text is required' });
 
-  const appid = process.env.VOLC_APPID;
-  const token = process.env.VOLC_ACCESS_TOKEN;
-  const voice = process.env.VOLC_VOICE || 'zh_female_wanqudashu_moon_bigtts';
+  const apiKey = process.env.VOLC_ACCESS_TOKEN;
+  const appid  = process.env.VOLC_APPID;
+  const voice  = process.env.VOLC_VOICE || 'zh_female_wanqudashu_moon_bigtts';
 
-  if (!appid || !token) {
-    return res.status(500).json({ error: 'Missing env vars', hasAppid: !!appid, hasToken: !!token });
+  if (!apiKey) {
+    return res.status(500).json({ error: 'Missing VOLC_ACCESS_TOKEN' });
   }
 
-  // 自动尝试所有可能的 cluster + resourceId 组合
-  const attempts = [
-    { cluster: 'volcano_mega', resourceId: 'volc.service_type.10029' },
-    { cluster: 'volcano_tts',  resourceId: 'volc.service_type.10029' },
-    { cluster: 'volcano_mega', resourceId: 'volc.tts.default' },
-    { cluster: 'volcano_tts',  resourceId: 'volc.tts.default' },
-    { cluster: 'volcano_mega', resourceId: 'volc.megatts.default' },
-    { cluster: 'volcano_tts',  resourceId: 'volc.megatts.default' },
+  const strategies = [
+    {
+      name: 'V3-apikey',
+      url:  'https://openspeech.bytedance.com/api/v3/tts',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': 'Bearer ' + apiKey,
+      },
+      body: {
+        user: { uid: 'magic-carpet' },
+        req_params: {
+          text:   text,
+          speaker: voice,
+          audio_params: { format: 'mp3', sample_rate: 24000 },
+          speed_ratio:  0.88,
+          volume_ratio: 1.0,
+          pitch_ratio:  1.0,
+        },
+      },
+      parseResponse: async (resp) => {
+        const rawText = await resp.text();
+        const chunks = rawText.trim().split('\n').filter(Boolean);
+        const audioChunks = [];
+        for (const chunk of chunks) {
+          try {
+            const parsed = JSON.parse(chunk);
+            if (parsed.data) audioChunks.push(parsed.data);
+          } catch (e) {}
+        }
+        if (audioChunks.length > 0) {
+          return Buffer.concat(audioChunks.map(c => Buffer.from(c, 'base64')));
+        }
+        try {
+          const single = JSON.parse(rawText);
+          if (single.data) return Buffer.from(single.data, 'base64');
+          throw new Error('code=' + single.code + ' msg=' + single.message);
+        } catch (e) {
+          throw new Error('V3 parse failed: ' + e.message + ' raw=' + rawText.substring(0, 200));
+        }
+      },
+    },
+    {
+      name: 'V3-bearer-semicolon',
+      url:  'https://openspeech.bytedance.com/api/v3/tts',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': 'Bearer;' + apiKey,
+      },
+      body: {
+        user: { uid: 'magic-carpet' },
+        req_params: {
+          text:   text,
+          speaker: voice,
+          audio_params: { format: 'mp3', sample_rate: 24000 },
+          speed_ratio: 0.88,
+        },
+      },
+      parseResponse: async (resp) => {
+        const rawText = await resp.text();
+        const chunks = rawText.trim().split('\n').filter(Boolean);
+        const audioChunks = [];
+        for (const chunk of chunks) {
+          try {
+            const parsed = JSON.parse(chunk);
+            if (parsed.data) audioChunks.push(parsed.data);
+          } catch (e) {}
+        }
+        if (audioChunks.length > 0) {
+          return Buffer.concat(audioChunks.map(c => Buffer.from(c, 'base64')));
+        }
+        try {
+          const single = JSON.parse(rawText);
+          if (single.data) return Buffer.from(single.data, 'base64');
+          throw new Error('code=' + single.code + ' msg=' + single.message);
+        } catch (e) {
+          throw new Error('parse failed: ' + e.message);
+        }
+      },
+    },
+    {
+      name: 'V1-apikey-mega',
+      url:  'https://openspeech.bytedance.com/api/v1/tts',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': 'Bearer;' + apiKey,
+        'Resource-Id':   'volc.service_type.10029',
+      },
+      body: {
+        app: { appid: appid || '0', token: apiKey, cluster: 'volcano_mega' },
+        user: { uid: 'magic-carpet' },
+        audio: { voice_type: voice, encoding: 'mp3', rate: 24000, speed_ratio: 0.88 },
+        request: { reqid: 'mc-' + Date.now(), text: text, text_type: 'plain', operation: 'query' },
+      },
+      parseResponse: async (resp) => {
+        const data = await resp.json();
+        if (data.code === 3000 && data.data) return Buffer.from(data.data, 'base64');
+        throw new Error('code=' + data.code + ' msg=' + data.message);
+      },
+    },
   ];
 
-  let lastError = null;
-
-  for (const attempt of attempts) {
+  for (const strategy of strategies) {
     try {
-      const response = await fetch('https://openspeech.bytedance.com/api/v1/tts', {
-        method: 'POST',
-        headers: {
-          'Content-Type':  'application/json',
-          'Authorization': 'Bearer;' + token,
-          'Resource-Id':   attempt.resourceId,
-        },
-        body: JSON.stringify({
-          app: {
-            appid:   appid,
-            token:   token,
-            cluster: attempt.cluster,
-          },
-          user: { uid: 'magic-carpet-user' },
-          audio: {
-            voice_type:   voice,
-            encoding:     'mp3',
-            rate:         24000,
-            bits:         16,
-            channel:      1,
-            speed_ratio:  0.88,
-            volume_ratio: 1.0,
-            pitch_ratio:  1.0,
-          },
-          request: {
-            reqid:         'mc-' + Date.now().toString(),
-            text:          text,
-            text_type:     'plain',
-            operation:     'query',
-            with_frontend: 1,
-            frontend_type: 'unitTson',
-          },
-        }),
+      console.log('Trying strategy: ' + strategy.name);
+      const resp = await fetch(strategy.url, {
+        method:  'POST',
+        headers: strategy.headers,
+        body:    JSON.stringify(strategy.body),
       });
 
-      const data = await response.json();
+      const audioBuffer = await strategy.parseResponse(resp);
 
-      if (data.code === 3000 && data.data) {
-        console.log('TTS SUCCESS with cluster=' + attempt.cluster + ' resource=' + attempt.resourceId);
-        const audioBuffer = Buffer.from(data.data, 'base64');
+      if (audioBuffer && audioBuffer.length > 100) {
+        console.log('TTS SUCCESS with strategy: ' + strategy.name + ' audioSize=' + audioBuffer.length);
         res.setHeader('Content-Type', 'audio/mpeg');
         res.setHeader('Content-Length', audioBuffer.length);
         res.setHeader('Cache-Control', 'no-store');
         return res.send(audioBuffer);
       }
 
-      lastError = { cluster: attempt.cluster, resource: attempt.resourceId, code: data.code, msg: data.message };
-      console.log('TTS attempt failed: ' + JSON.stringify(lastError));
-
+      console.log('Strategy ' + strategy.name + ': got empty or too-small audio');
     } catch (err) {
-      lastError = { cluster: attempt.cluster, resource: attempt.resourceId, err: err.message };
+      console.log('Strategy ' + strategy.name + ' failed: ' + err.message);
     }
   }
 
-  console.error('ALL TTS attempts failed. appid_prefix=' + appid.substring(0,4) + ' token_prefix=' + token.substring(0,8) + ' voice=' + voice);
-  console.error('Last error: ' + JSON.stringify(lastError));
-
-  res.status(502).json({
-    error: 'All TTS combinations failed',
-    lastError: lastError,
-    debug: {
-      appid_start: appid.substring(0, 4),
-      token_start: token.substring(0, 8),
-      voice: voice,
-    },
-  });
+  console.error('ALL strategies failed. apiKey_prefix=' + apiKey.substring(0, 12) + ' voice=' + voice);
+  res.status(502).json({ error: 'All TTS strategies failed', voice: voice });
 }
