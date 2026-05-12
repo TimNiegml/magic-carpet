@@ -29,13 +29,13 @@ export default async function handler(req, res) {
         'Content-Type':  'application/json',
         // 注意：火山引擎 TTS 鉴权格式是 Bearer; 加分号，不是空格
         'Authorization': `Bearer;${token}`,
-        'Resource-Id':   'volc.tts.default',
+        'Resource-Id':   'volc.service_type.10029',
       },
       body: JSON.stringify({
         app: {
           appid,           // 数字型 APP ID
           token,           // AccessToken
-          cluster: 'volcano_tts',
+          cluster: 'volcano_mega',
         },
         user: { uid: 'magic-carpet-user' },
         audio: {
