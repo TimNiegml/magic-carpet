@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
   const appid = process.env.VOLC_APPID;
   const token = process.env.VOLC_ACCESS_TOKEN;
-  const voice = process.env.VOLC_VOICE || 'zh_female_cancan_mars_bigtts';
+  const voice = process.env.VOLC_VOICE || 'zh_female_wanqudashu_moon_bigtts';
 
   if (!appid || !token) {
     return res.status(500).json({ error: 'Missing VOLC_APPID or VOLC_ACCESS_TOKEN' });
