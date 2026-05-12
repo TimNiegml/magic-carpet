@@ -35,7 +35,7 @@ export default async function handler(req, res) {
         app: {
           appid,           // 数字型 APP ID
           token,           // AccessToken
-          cluster: 'volcano_tts',
+          cluster: 'volcano_mega',
         },
         user: { uid: 'magic-carpet-user' },
         audio: {
