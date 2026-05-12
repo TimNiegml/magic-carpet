@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "functions": {
+    "api/*.js": {
+      "memory": 256,
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    { "source": "/api/tts",     "destination": "/api/tts.js" },
+    { "source": "/api/narrate", "destination": "/api/narrate.js" }
+  ]
+}
