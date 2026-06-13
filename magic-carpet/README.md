@@ -1,93 +1,86 @@
-# 🪄 魔毯冥想旅程 — 部署指南
+# 🏋️ 魔毯健身 — 个人训练助手
 
-## 第一步：申请火山引擎 TTS API Key
+一款面向「久坐 + 颈椎问题 + 想增肌」人群的个人健身追踪 App。核心三件事：
 
-1. 打开 https://www.volcengine.com 注册账号（支持微信/手机号）
+1. **每周训练计划** — 按日展示今天练什么（推 / 拉 / 腿 / 游泳 / 户外 / 休息）
+2. **颈椎康复打卡** — 5 个专项动作，训练前后必做，连续打卡 streak
+3. **私人助教** — 每个动作都有分步要领、常见错误、呼吸与颈椎提示，并能**语音讲给你听**
 
-2. 进入控制台 → 搜索「语音合成」→ 开通服务
-
-3. 创建应用：
-   - 控制台左侧 → 语音技术 → 语音合成 → 应用管理 → 新建应用
-   - 记录下：**AppID** 和 **AccessToken**
-
-4. 确认 Cluster 为：`volcano_tts`（默认）
-
-5. 推荐选用的声音：
-
-   | 声音代码 | 说明 | 适合场景 |
-   |---|---|---|
-   | `zh_female_cancan_mars_bigtts` | 灿灿·温柔女声 ⭐ 推荐 | 冥想引导 |
-   | `zh_female_yangtian_moon_bigtts` | 扬天·清澈女声 | 冥想引导 |
-   | `zh_male_qingcang_mars_bigtts` | 擎苍·深沉男声 | 沉浸叙述 |
+> 目标：缓解颈椎问题 + 增肌增强体质。12 周三阶段计划（重建 → 增肌 → 强化）。
 
 ---
 
-## 第二步：申请 Anthropic API Key
+## ✨ 私人助教（零配置即可用）
 
-1. 打开 https://console.anthropic.com 注册
-2. API Keys → Create Key
-3. 记录下：**sk-ant-xxxx**
+点每个动作旁的 🔊 按钮，助教会把动作要领念给你听。设计为「不配置也能用，配了 key 更好」：
 
----
+| 能力 | 默认（免费、无需 key） | 配置后增强 |
+|------|----------------------|-----------|
+| 文字讲解 | 内置分步要领 / 常见错误 / 呼吸 / 颈椎提示 | Claude 生成更自然的口语化教练词（`/api/coach`） |
+| 语音播报 | 浏览器内置中文朗读（Web Speech API） | 火山引擎高质量女声（`/api/tts`） |
 
-## 第三步：一键部署到 Vercel（免费）
-
-### 方式 A：命令行（推荐）
-
-```bash
-# 1. 安装 Vercel CLI
-npm i -g vercel
-
-# 2. 在项目根目录运行
-vercel
-
-# 3. 设置环境变量
-vercel env add ANTHROPIC_API_KEY
-vercel env add VOLC_APPID
-vercel env add VOLC_ACCESS_TOKEN
-vercel env add VOLC_VOICE   # 可选，默认灿灿
-
-# 4. 重新部署
-vercel --prod
-```
-
-### 方式 B：GitHub + Vercel 网页控制台
-
-1. 把这个项目上传到 GitHub 仓库
-2. 打开 https://vercel.com → Import Project → 选择仓库
-3. 在 Environment Variables 填入：
-   ```
-   ANTHROPIC_API_KEY = sk-ant-...
-   VOLC_APPID        = 你的AppID
-   VOLC_ACCESS_TOKEN = 你的AccessToken
-   VOLC_VOICE        = zh_female_cancan_mars_bigtts
-   ```
-4. Deploy！
+环境变量见 `.env.example`，**全部可选**。
 
 ---
 
-## 本地开发
+## 🧱 技术栈
 
-```bash
-# 创建 .env.local
-cp .env.example .env.local
-# 填入你的 Key
+React + Vite + TypeScript · Tailwind CSS · Zustand（localStorage 持久化）· Recharts · date-fns · lucide-react
 
-# 启动
-npx vercel dev
-# 访问 http://localhost:3000
-```
+数据全部存在浏览器本地，无需后端账号；AI/语音通过 `/api` Serverless 函数代理。
 
 ---
 
-## 项目结构
+## 📁 项目结构
 
 ```
 magic-carpet/
-├── index.html       ← 前端页面（魔毯UI）
+├── index.html              ← Vite 入口
+├── src/
+│   ├── data/exercises.ts   ← 周计划 + 颈椎专项 + 完整动作教学内容
+│   ├── store/workoutStore.ts ← Zustand 状态（进度 / 记录 / 计划）
+│   ├── lib/coach.ts        ← 私人助教：文字讲解 + 语音播报
+│   ├── components/         ← ExerciseCard 等
+│   └── pages/             ← 今日 / 周计划 / 记录 / 历史 / 进展 / 计划 / 动作库
 ├── api/
-│   ├── narrate.js   ← Claude 生成旁白
-│   └── tts.js       ← 火山引擎 TTS 转音频
-├── vercel.json      ← 部署配置
-└── .env.example     ← 环境变量模板
+│   ├── coach.js            ← Claude 生成口语化指导（可选）
+│   └── tts.js              ← 火山引擎 TTS（可选）
+├── legacy/                 ← 旧版「魔毯冥想」应用（保留备份）
+└── vercel.json
 ```
+
+页面路由（HashRouter）：`/` 今日 · `/schedule` 周计划 · `/log` 记录 · `/log/history` 历史 · `/progress` 进展 · `/plan` 计划 · `/exercises` 动作库
+
+---
+
+## 🚀 本地开发
+
+```bash
+npm install
+npm run dev        # http://localhost:5173
+```
+
+需要测试 AI/语音接口时，另开一个终端跑 `npx vercel dev`（监听 3000，Vite 已配置 /api 代理）。
+
+## ☁️ 部署到 Vercel
+
+1. 把项目推到 GitHub，在 Vercel Import（框架自动识别为 Vite）
+2. 如需 AI/高质量语音，在 Environment Variables 里填 `.env.example` 中的变量（可全部不填）
+3. Deploy ✅
+
+---
+
+## 📦 MVP 范围
+
+- [x] 今日计划展示 + 动作逐条打勾
+- [x] 颈椎专项打卡 + 连续 streak
+- [x] 训练记录写入 localStorage + 历史列表
+- [x] 周视图（7 天色块 + 本周完成率）
+- [x] 进展统计（次数/时长/类型饼图/12 周阶段）
+- [x] 计划自定义（每天训练类型可调）
+- [x] **私人助教语音讲解**（内置 + AI/火山引擎增强）
+- [ ] 动作示范视频（后续）
+
+---
+
+*旧版「魔毯冥想旅程」已移至 `legacy/`，部署指南见该目录。*
