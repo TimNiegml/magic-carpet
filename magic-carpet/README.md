@@ -44,8 +44,8 @@ magic-carpet/
 │   └── pages/             ← 今日 / 周计划 / 记录 / 历史 / 进展 / 计划 / 动作库
 ├── api/
 │   ├── coach.js            ← Claude 生成口语化指导（可选）
+│   ├── narrate.js          ← 旧版冥想旁白（保留）
 │   └── tts.js              ← 火山引擎 TTS（可选）
-├── legacy/                 ← 旧版「魔毯冥想」应用（保留备份）
 └── vercel.json
 ```
 
@@ -83,4 +83,4 @@ npm run dev        # http://localhost:5173
 
 ---
 
-*旧版「魔毯冥想旅程」已移至 `legacy/`，部署指南见该目录。*
+*旧版「魔毯冥想旅程」完整保留在 `main` 分支。*
