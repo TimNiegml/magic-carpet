@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>魔毯之旅 · Hoffman 冥想</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#0c0b09}
+
+#app{
+  min-height:100vh;background:#0c0b09;
+  font-family:'Noto Serif SC','STSong',Georgia,serif;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:48px 24px;position:relative;overflow:hidden;
+}
+#star-canvas{position:fixed;inset:0;pointer-events:none;z-index:0}
+.z{position:relative;z-index:2}
+
+.eyebrow{
+  font-size:10px;letter-spacing:8px;color:#6a5228;
+  font-family:sans-serif;margin-bottom:12px;text-align:center
+}
+.main-title{
+  font-size:2rem;font-weight:300;color:#c9a84c;
+  letter-spacing:10px;text-align:center;margin-bottom:32px
+}
+
+/* ── Carpet SVG ── */
+.carpet-wrap{margin-bottom:22px;animation:carpet-float 5s ease-in-out infinite}
+
+/* ── Scene label ── */
+.scene-label{
+  font-size:11px;letter-spacing:5px;color:#6a5228;
+  font-family:sans-serif;text-align:center;min-height:20px;margin-bottom:16px;
+  transition:opacity 0.6s
+}
+
+/* ── Narration ── */
+.narration-box{
+  max-width:500px;width:100%;
+  border:0.5px solid rgba(201,168,76,0.2);border-radius:16px;
+  padding:30px 34px;text-align:center;line-height:2.1;
+  font-size:1rem;font-weight:300;min-height:148px;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:28px;background:rgba(255,255,255,0.018);
+  transition:opacity 0.5s
+}
+#narration-text{color:#8a7040;transition:color 0.6s}
+#narration-text.bright{color:#ddd0a0}
+
+/* ── Speaking bars ── */
+#bars{display:none;gap:5px;align-items:flex-end;height:24px;margin-bottom:20px}
+.bar{width:3px;border-radius:2px;background:#8a7040;animation:bar-up 0.75s ease-in-out infinite alternate}
+
+/* ── Interaction area ── */
+#interact{display:none;flex-direction:column;align-items:center}
+.cta{
+  font-size:11px;letter-spacing:5px;color:#6a5228;
+  font-family:sans-serif;margin-bottom:20px;text-align:center
+}
+#transcript-line{
+  font-size:13px;color:#9a8048;font-style:italic;
+  min-height:22px;margin-bottom:12px;text-align:center
+}
+
+/* ── Mic button ── */
+.mic-wrap{position:relative;margin-bottom:26px}
+.mic-ring{
+  position:absolute;inset:-10px;border-radius:50%;
+  border:0.5px solid rgba(201,168,76,0.5);
+  animation:ring-out 1.5s ease-out infinite;display:none
+}
+.mic-btn{
+  width:72px;height:72px;border-radius:50%;
+  border:0.5px solid #9a8048;background:rgba(154,128,72,0.1);
+  color:#c9a84c;font-size:26px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.3s;outline:none
+}
+.mic-btn svg{width:26px;height:26px;stroke:#c9a84c;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.mic-btn:hover{background:rgba(154,128,72,0.22)}
+.mic-btn.on{background:rgba(154,128,72,0.3);border-color:#c9a84c}
+.mic-btn.on svg{stroke:#e8d0a0}
+
+/* ── Destination chips ── */
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:440px}
+.chip{
+  background:rgba(154,128,72,0.07);border:0.5px solid rgba(154,128,72,0.28);
+  border-radius:20px;color:#9a8048;font-size:12px;padding:6px 15px;
+  cursor:pointer;letter-spacing:1.5px;transition:all 0.2s;font-family:sans-serif
+}
+.chip:hover{background:rgba(154,128,72,0.2);color:#c9a84c;border-color:#9a8048}
+
+/* ── Flying indicator ── */
+#flying-wrap{display:none;text-align:center}
+.flying-text{
+  font-size:11px;letter-spacing:6px;color:#6a5228;
+  font-family:sans-serif;animation:blink-soft 2s ease-in-out infinite
+}
+
+/* ── Loading spinner ── */
+#loading{display:none;flex-direction:column;align-items:center;gap:12px;margin-bottom:24px}
+.spinner{
+  width:24px;height:24px;border-radius:50%;
+  border:1.5px solid rgba(201,168,76,0.15);
+  border-top-color:#c9a84c;
+  animation:spin 0.9s linear infinite
+}
+.loading-text{font-size:11px;letter-spacing:4px;color:#6a5228;font-family:sans-serif}
+
+/* ── Animations ── */
+@keyframes carpet-float{0%,100%{transform:translateY(0) rotate(-1.5deg)}50%{transform:translateY(-16px) rotate(1.5deg)}}
+@keyframes bar-up{from{height:3px}to{height:20px}}
+@keyframes ring-out{0%{transform:scale(1);opacity:0.7}100%{transform:scale(2.4);opacity:0}}
+@keyframes blink-soft{0%,100%{opacity:0.4}50%{opacity:0.9}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fade-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+.fade-in{animation:fade-in 0.6s ease forwards}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="star-canvas"></canvas>
+
+  <div class="z eyebrow">HOFFMAN · 冥想旅程</div>
+  <div class="z main-title">魔 毯 之 旅</div>
+
+  <!-- Carpet SVG -->
+  <div class="z carpet-wrap">
+    <svg viewBox="0 0 130 80" width="130" height="80" xmlns="http://www.w3.org/2000/svg">
+      <g stroke="#9a8048" stroke-width="1.3" opacity="0.65">
+        <line x1="11" y1="20" x2="3" y2="11"/><line x1="11" y1="32" x2="2" y2="32"/>
+        <line x1="11" y1="44" x2="3" y2="44"/><line x1="11" y1="56" x2="3" y2="64"/>
+        <line x1="119" y1="20" x2="127" y2="11"/><line x1="119" y1="32" x2="128" y2="32"/>
+        <line x1="119" y1="44" x2="127" y2="44"/><line x1="119" y1="56" x2="127" y2="64"/>
+      </g>
+      <rect x="11" y="16" width="108" height="48" rx="5" fill="#9a8048" opacity="0.15"/>
+      <rect x="16" y="21" width="98" height="38" rx="3" fill="none" stroke="#9a8048" stroke-width="0.7" opacity="0.45"/>
+      <rect x="22" y="27" width="86" height="26" rx="2" fill="none" stroke="#9a8048" stroke-width="0.4" opacity="0.35"/>
+      <circle cx="65" cy="40" r="11" fill="none" stroke="#c9a84c" stroke-width="0.6" opacity="0.5"/>
+      <circle cx="65" cy="40" r="5" fill="#9a8048" opacity="0.3"/>
+      <g fill="#c9a84c" opacity="0.55">
+        <polygon points="28,29 32,33 28,37 24,33"/>
+        <polygon points="102,29 106,33 102,37 98,33"/>
+        <polygon points="28,43 32,47 28,51 24,47"/>
+        <polygon points="102,43 106,47 102,51 98,47"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="z scene-label" id="scene-label"></div>
+
+  <div class="z narration-box">
+    <span id="narration-text">铺开你的魔毯……</span>
+  </div>
+
+  <!-- Speaking bars -->
+  <div class="z" id="bars">
+    <div class="bar" style="animation-delay:0s"></div>
+    <div class="bar" style="animation-delay:0.12s"></div>
+    <div class="bar" style="animation-delay:0.24s"></div>
+    <div class="bar" style="animation-delay:0.36s"></div>
+    <div class="bar" style="animation-delay:0.48s"></div>
+  </div>
+
+  <!-- Loading -->
+  <div class="z" id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text">魔毯感应中……</div>
+  </div>
+
+  <!-- Flying -->
+  <div class="z" id="flying-wrap">
+    <div class="flying-text">✦ &nbsp; 魔毯飞行中 &nbsp; ✦</div>
+  </div>
+
+  <!-- Interaction -->
+  <div class="z" id="interact">
+    <div class="cta">告诉魔毯，你想飞向哪里？</div>
+    <div id="transcript-line"></div>
+    <div class="mic-wrap">
+      <div class="mic-ring" id="mic-ring"></div>
+      <button class="mic-btn" id="mic-btn" aria-label="语音输入">
+        <!-- Microphone icon -->
+        <svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="9" y1="22" x2="15" y2="22"/></svg>
+      </button>
+    </div>
+    <div class="chips" id="chips">
+      <div class="chip" onclick="goTo('月球')">月球</div>
+      <div class="chip" onclick="goTo('深海龙宫')">深海龙宫</div>
+      <div class="chip" onclick="goTo('广寒宫见嫦娥')">广寒宫</div>
+      <div class="chip" onclick="goTo('花果山见孙悟空')">花果山</div>
+      <div class="chip" onclick="goTo('加利福尼亚州')">加利福尼亚</div>
+      <div class="chip" onclick="goTo('喜马拉雅山')">喜马拉雅</div>
+      <div class="chip" onclick="goTo('撒哈拉沙漠')">撒哈拉</div>
+      <div class="chip" onclick="goTo('北极看极光')">北极极光</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── Stars ── */
+const canvas = document.getElementById('star-canvas');
+const ctx2d  = canvas.getContext('2d');
+let stars    = [];
+
+function resizeCanvas() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  stars = Array.from({ length: 130 }, () => ({
+    x:     Math.random() * canvas.width,
+    y:     Math.random() * canvas.height,
+    r:     Math.random() * 1.4 + 0.3,
+    phase: Math.random() * Math.PI * 2,
+    spd:   0.25 + Math.random() * 0.55,
+  }));
+}
+function drawStars(ts) {
+  ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+  const t = ts / 1000;
+  stars.forEach(s => {
+    const a = 0.22 + 0.55 * (0.5 + 0.5 * Math.sin(t * s.spd + s.phase));
+    ctx2d.beginPath();
+    ctx2d.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx2d.fillStyle = `rgba(255,255,255,${a})`;
+    ctx2d.fill();
+  });
+  requestAnimationFrame(drawStars);
+}
+resizeCanvas();
+requestAnimationFrame(drawStars);
+window.addEventListener('resize', resizeCanvas);
+
+/* ── Ambient Audio ── */
+let audioCtx    = null;
+let activeNodes = [];
+
+function getAC() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function stopAudio() {
+  activeNodes.forEach(n => { try { n.stop(); } catch(e) {} });
+  activeNodes = [];
+}
+function mkNoise(ac, dur) {
+  const buf = ac.createBuffer(1, ac.sampleRate * dur, ac.sampleRate);
+  const d   = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return buf;
+}
+function playWind() {
+  const ac  = getAC();
+  const src = ac.createBufferSource(); src.buffer = mkNoise(ac, 5); src.loop = true;
+  const f   = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 380; f.Q.value = 0.42;
+  const g   = ac.createGain(); g.gain.setValueAtTime(0, ac.currentTime); g.gain.linearRampToValueAtTime(0.13, ac.currentTime + 2.5);
+  src.connect(f); f.connect(g); g.connect(ac.destination); src.start(); activeNodes.push(src);
+}
+function playOcean() {
+  const ac = getAC();
+  for (let i = 0; i < 3; i++) {
+    const osc = ac.createOscillator(); osc.type = 'sine'; osc.frequency.value = 42 + i * 26;
+    const lfo = ac.createOscillator(); lfo.frequency.value = 0.06 + i * 0.035;
+    const lg  = ac.createGain(); lg.gain.value = 9; lfo.connect(lg); lg.connect(osc.frequency);
+    const g   = ac.createGain(); g.gain.value = 0.036;
+    osc.connect(g); g.connect(ac.destination); osc.start(); lfo.start(); activeNodes.push(osc, lfo);
+  }
+  const src = ac.createBufferSource(); src.buffer = mkNoise(ac, 5); src.loop = true;
+  const f   = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 110;
+  const g   = ac.createGain(); g.gain.setValueAtTime(0, ac.currentTime); g.gain.linearRampToValueAtTime(0.055, ac.currentTime + 3);
+  src.connect(f); f.connect(g); g.connect(ac.destination); src.start(); activeNodes.push(src);
+}
+function playSpace() {
+  const ac = getAC();
+  for (let i = 0; i < 4; i++) {
+    const osc = ac.createOscillator(); osc.type = 'sine'; osc.frequency.value = 150 + i * 105;
+    const lfo = ac.createOscillator(); lfo.frequency.value = 0.035 + i * 0.02;
+    const lg  = ac.createGain(); lg.gain.value = 3.5; lfo.connect(lg); lg.connect(osc.frequency);
+    const g   = ac.createGain(); g.gain.setValueAtTime(0, ac.currentTime); g.gain.linearRampToValueAtTime(0.02, ac.currentTime + 4);
+    osc.connect(g); g.connect(ac.destination); osc.start(); lfo.start(); activeNodes.push(osc, lfo);
+  }
+}
+function pickAmbient(dest) {
+  if (/月|太空|星|天宫|仙|宇宙|广寒|嫦/.test(dest)) playSpace();
+  else if (/海|水|龙宫|深|鲸|珊瑚|潜/.test(dest)) playOcean();
+  else playWind();
+}
+
+/* ── UI State ── */
+let phase = 'init';
+let recog = null;
+let currentAudio = null;
+
+const nt          = document.getElementById('narration-text');
+const sl          = document.getElementById('scene-label');
+const barsEl      = document.getElementById('bars');
+const interactEl  = document.getElementById('interact');
+const flyWrap     = document.getElementById('flying-wrap');
+const loadEl      = document.getElementById('loading');
+const micBtn      = document.getElementById('mic-btn');
+const micRing     = document.getElementById('mic-ring');
+const trLine      = document.getElementById('transcript-line');
+
+function setPhase(p) {
+  phase = p;
+  barsEl.style.display     = 'none';
+  interactEl.style.display = 'none';
+  flyWrap.style.display    = 'none';
+  loadEl.style.display     = 'none';
+  if (p === 'speaking')  barsEl.style.display     = 'flex';
+  if (p === 'listening') interactEl.style.display  = 'flex';
+  if (p === 'flying')    flyWrap.style.display     = 'block';
+  if (p === 'loading')   loadEl.style.display      = 'flex';
+}
+
+/* ── TTS via Volcengine (through /api/tts) ── */
+async function speakWithAPI(text, onEnd) {
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  setPhase('speaking');
+
+  try {
+    const res = await fetch('/api/tts', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ text }),
+    });
+    if (!res.ok) throw new Error(`TTS API ${res.status}`);
+
+    const blob      = await res.blob();
+    const url       = URL.createObjectURL(blob);
+    const audio     = new Audio(url);
+    currentAudio    = audio;
+    audio.onended   = () => { URL.revokeObjectURL(url); currentAudio = null; if (onEnd) onEnd(); };
+    audio.onerror   = () => { currentAudio = null; if (onEnd) onEnd(); };
+    await audio.play();
+  } catch (err) {
+    console.error('TTS error:', err);
+    if (onEnd) onEnd();
+  }
+}
+
+/* ── Main Journey ── */
+async function goTo(dest) {
+  if (phase === 'flying' || phase === 'loading') return;
+  if (recog) { recog.stop(); recog = null; }
+  trLine.textContent = '';
+
+  setPhase('flying');
+  stopAudio();
+  playWind();
+  nt.className = '';
+  nt.textContent = `魔毯感受到你的心意，带着你向${dest}飞去……`;
+  sl.textContent = '';
+
+  // 1. Generate narration
+  setPhase('loading');
+  let narrateText = '';
+  try {
+    const res  = await fetch('/api/narrate', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ destination: dest }),
+    });
+    const data = await res.json();
+    narrateText = data.text || '魔毯在云端轻轻飘荡……';
+  } catch (e) {
+    narrateText = '魔毯在云端轻轻飘荡，带你感受宁静……';
+  }
+
+  // 2. Show text
+  nt.className = 'bright fade-in';
+  nt.textContent = narrateText;
+  sl.textContent = `· 当前目的地：${dest} ·`;
+
+  // 3. Switch ambient sound
+  stopAudio();
+  pickAmbient(dest);
+
+  // 4. Speak with Volcengine TTS
+  await speakWithAPI(narrateText, () => setPhase('listening'));
+}
+
+/* ── Voice Input ── */
+function startVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert('请在 Chrome 浏览器中使用语音功能'); return; }
+  if (recog) { recog.stop(); return; }
+
+  recog = new SR();
+  recog.lang            = 'zh-CN';
+  recog.continuous      = false;
+  recog.interimResults  = true;
+
+  recog.onstart = () => {
+    micBtn.classList.add('on');
+    micRing.style.display = 'block';
+    micBtn.querySelector('svg').innerHTML = '<rect x="3" y="3" width="18" height="18" rx="3"/>';
+  };
+  recog.onresult = e => {
+    const t = Array.from(e.results).map(r => r[0].transcript).join('');
+    trLine.textContent = `"${t}"`;
+    if (e.results[0].isFinal) { recog = null; resetMic(); trLine.textContent = ''; goTo(t); }
+  };
+  recog.onerror = recog.onend = () => { recog = null; resetMic(); };
+  recog.start();
+}
+function resetMic() {
+  micBtn.classList.remove('on');
+  micRing.style.display = 'none';
+  micBtn.querySelector('svg').innerHTML = '<rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="9" y1="22" x2="15" y2="22"/>';
+}
+micBtn.addEventListener('click', startVoice);
+
+/* ── Intro ── */
+const introText = '欢迎登上魔毯……请慢慢闭上眼睛，深呼吸，让自己完全放松……你坐在一块柔软温暖的金色魔毯上，它轻轻飘浮在云端，微风轻抚你的面颊，天空湛蓝而深远……魔毯在等待你的心意——你想飞向哪里？';
+
+nt.className    = 'bright';
+nt.textContent  = introText;
+
+setTimeout(async () => {
+  await speakWithAPI(introText, () => setPhase('listening'));
+}, 1000);
+</script>
+</body>
+</html>

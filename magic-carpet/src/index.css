@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #0b1120;
+  color: #e2e8f0;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 隐藏滚动条但保留滚动（横向日历） */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl bg-slate-800/60 border border-slate-700/60 backdrop-blur;
+  }
+}
+
+/* ── 动作示范示意动画 ── */
+@keyframes demoTuck {
+  from { transform: translateX(9px); }
+  to { transform: translateX(-1px); }
+}
+@keyframes demoTilt {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(20deg); }
+}
+@keyframes demoRotate {
+  from { transform: rotate(-6deg); }
+  to { transform: rotate(72deg); }
+}
+@keyframes demoSpreadL {
+  from { transform: translateX(0); }
+  to { transform: translateX(-16px); }
+}
+@keyframes demoSpreadR {
+  from { transform: translateX(0); }
+  to { transform: translateX(16px); }
+}
+@keyframes demoPull {
+  from { transform: translateX(0); }
+  to { transform: translateX(-12px); }
+}
+@keyframes demoFade {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+.anim-tuck { animation: demoTuck 1.8s ease-in-out infinite alternate; }
+.anim-tilt { animation: demoTilt 1.9s ease-in-out infinite alternate; transform-origin: 60px 64px; }
+.anim-rotate { animation: demoRotate 2.2s ease-in-out infinite alternate; transform-origin: 60px 56px; }
+.anim-spread-l { animation: demoSpreadL 1.6s ease-in-out infinite alternate; }
+.anim-spread-r { animation: demoSpreadR 1.6s ease-in-out infinite alternate; }
+.anim-pull { animation: demoPull 1.7s ease-in-out infinite alternate; }
+.anim-fade { animation: demoFade 1.7s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-tuck, .anim-tilt, .anim-rotate, .anim-spread-l, .anim-spread-r, .anim-pull, .anim-fade {
+    animation: none;
+  }
+}
