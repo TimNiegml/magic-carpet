@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
-import { CheckCircle2, ChevronRight, HeartPulse } from 'lucide-react'
+import { CheckCircle2, ChevronRight, HeartPulse, PlayCircle } from 'lucide-react'
 import { getDayPlan, CERVICAL_EXERCISES } from '../data/exercises'
 import { SESSION_META } from '../types'
 import { todayISO, useWorkoutStore } from '../store/workoutStore'
@@ -53,6 +53,21 @@ export default function HomePage() {
           </div>
         )}
       </div>
+
+      {/* 引导训练入口 */}
+      <Link
+        to="/session"
+        className="mb-5 flex items-center justify-between rounded-2xl bg-cervical p-4 text-slate-900 active:scale-[0.99]"
+      >
+        <div className="flex items-center gap-3">
+          <PlayCircle size={24} />
+          <div>
+            <div className="font-semibold">开始引导训练</div>
+            <div className="text-xs opacity-80">教练带练 · 计时提醒 · 说「下一个」切换</div>
+          </div>
+        </div>
+        <ChevronRight size={20} />
+      </Link>
 
       {/* 颈椎专项模块 */}
       <div className="card mb-5 p-4">

@@ -9,6 +9,7 @@ const HistoryPage = lazy(() => import('./pages/History'))
 const ProgressPage = lazy(() => import('./pages/Progress'))
 const PlanPage = lazy(() => import('./pages/Plan'))
 const ExercisesPage = lazy(() => import('./pages/Exercises'))
+const SessionPage = lazy(() => import('./pages/Session'))
 
 const tabs = [
   { to: '/', label: '今日', icon: HomeIcon, end: true },
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/progress" element={<ProgressPage />} />
           <Route path="/plan" element={<PlanPage />} />
           <Route path="/exercises" element={<ExercisesPage />} />
+          <Route path="/session" element={<SessionPage />} />
         </Routes>
         </Suspense>
       </main>
