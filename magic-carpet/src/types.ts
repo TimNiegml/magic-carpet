@@ -17,7 +17,8 @@ export interface Exercise {
   reps: string // e.g. "10-12" or "30秒"
   cue: string // 一句话执行提示
   isCervical: boolean // 是否属于颈椎专项
-  videoUrl?: string // 可选示范链接
+  videoUrl?: string // 可选示范链接（视频/B站等）
+  gifUrl?: string // 可选示范 GIF/图片直链；填了优先显示真人示范
   // —— 私人助教教学内容 ——
   focus?: string // 目标肌群 / 训练目的
   steps?: string[] // 分步动作要领

@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { AlertTriangle, ChevronDown, Loader2, Sparkles, Square, Volume2, Wind } from 'lucide-react'
+import { AlertTriangle, ChevronDown, Loader2, PlayCircle, Sparkles, Square, Volume2, Wind } from 'lucide-react'
 import type { Exercise } from '../types'
 import { fetchCoaching, speak, stopSpeaking } from '../lib/coach'
+import ExerciseDemo, { hasDemo } from './ExerciseDemo'
 
 interface Props {
   exercise: Exercise
@@ -15,7 +16,8 @@ export default function ExerciseCard({ exercise: ex, done, onToggle, accent = '#
   const [speaking, setSpeaking] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  const hasDetail = !!(ex.steps?.length || ex.mistakes?.length || ex.breathing || ex.cervicalNote)
+  const demoAvailable = hasDemo(ex.id, ex.gifUrl)
+  const hasDetail = !!(ex.steps?.length || ex.mistakes?.length || ex.breathing || ex.cervicalNote || demoAvailable)
 
   async function onCoach() {
     if (speaking || loading) {
@@ -63,6 +65,11 @@ export default function ExerciseCard({ exercise: ex, done, onToggle, accent = '#
                 颈椎
               </span>
             )}
+            {demoAvailable && (
+              <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-slate-700/70 px-1.5 py-0.5 text-[10px] text-slate-300">
+                <PlayCircle size={10} /> 示范
+              </span>
+            )}
           </div>
           <div className="mt-0.5 text-xs text-slate-400">
             {ex.sets} 组 × {ex.reps}
@@ -93,6 +100,7 @@ export default function ExerciseCard({ exercise: ex, done, onToggle, accent = '#
 
       {open && hasDetail && (
         <div className="space-y-3 border-t border-slate-700/60 px-4 pb-4 pt-3 text-sm">
+          {demoAvailable && <ExerciseDemo id={ex.id} gifUrl={ex.gifUrl} name={ex.name} />}
           {ex.focus && (
             <p className="text-slate-300">
               <span className="text-slate-500">目标：</span>
