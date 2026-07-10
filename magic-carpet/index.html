@@ -103,6 +103,25 @@ html,body{height:100%;background:#0c0b09}
 .mic-btn.on{background:rgba(154,128,72,0.3);border-color:#c9a84c}
 .mic-btn.on svg{stroke:#e8d0a0}
 
+/* ── Text input fallback ── */
+.type-link{
+  font-size:11px;color:#6a5228;cursor:pointer;margin-bottom:18px;
+  font-family:sans-serif;letter-spacing:2px;transition:color 0.2s
+}
+.type-link:hover{color:#c9a84c}
+.type-row{display:none;gap:8px;margin-bottom:22px;width:100%;max-width:320px}
+.type-row input{
+  flex:1;background:rgba(154,128,72,0.08);border:0.5px solid rgba(154,128,72,0.35);
+  border-radius:22px;color:#ddd0a0;font-family:'Noto Serif SC',serif;
+  font-size:14px;padding:10px 18px;outline:none;min-width:0
+}
+.type-row input::placeholder{color:#6a5228}
+.type-row button{
+  background:rgba(154,128,72,0.15);border:0.5px solid #9a8048;border-radius:22px;
+  color:#c9a84c;font-size:13px;padding:10px 20px;cursor:pointer;letter-spacing:2px;
+  font-family:'Noto Serif SC',serif
+}
+
 /* ── Blueprint cards ── */
 .bp-grid{
   display:flex;flex-wrap:wrap;gap:10px;justify-content:center;
@@ -225,6 +244,11 @@ html,body{height:100%;background:#0c0b09}
       <button class="mic-btn" id="mic-btn" aria-label="语音输入">
         <svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="9" y1="22" x2="15" y2="22"/></svg>
       </button>
+    </div>
+    <div class="type-link" id="type-link">或者，用文字告诉魔毯 ›</div>
+    <div class="type-row" id="type-row">
+      <input id="type-input" placeholder="你想去哪里…" maxlength="30">
+      <button id="type-go">出发</button>
     </div>
     <div class="bp-grid" id="bp-grid"></div>
     <div class="chips">
@@ -760,17 +784,40 @@ function splitSentences(text) {
 }
 
 /* ── Voice Input ──
-   手机端适配：continuous 模式 + 意外结束自动重启（安卓上系统常在短暂静音后秒停）；
-   识别期间压低环境音，防止喇叭声漏进麦克风 */
+   双通道：优先浏览器 Web Speech（桌面 Chrome/Edge 免费秒识）；
+   识别服务不可用时（小米浏览器、国内安卓 Chrome 等连不上 Google 识别服务）
+   自动切换到「录音 → /api/asr 火山引擎大模型识别」并记住选择；
+   两者都不行时弹出文字输入。识别期间压低环境音。 */
 let recogActive  = false;
 let recogRestart = 0;
 let voiceTimer   = null;
+let sttMode      = 'web';                  // 'web' | 'server'
+try { sttMode = localStorage.getItem('mc-stt') || 'web'; } catch (e) {}
+if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) sttMode = 'server';
 
+let recording = false;
+let recStream = null, recCtx = null, recNode = null, recChunks = [];
+
+const typeRow   = document.getElementById('type-row');
+const typeInput = document.getElementById('type-input');
+
+function micClick() {
+  if (recording)   { finishRecorder(); return; }   // 录音中再点 = 结束并识别
+  if (recogActive) { stopVoice(); return; }        // 识别中再点 = 取消
+  if (sttMode === 'server') startRecorder();
+  else startVoice();
+}
+function setMicOn(on) {
+  micBtn.classList.toggle('on', on);
+  micRing.style.display = on ? 'block' : 'none';
+  micBtn.querySelector('svg').innerHTML = on
+    ? '<rect x="3" y="3" width="18" height="18" rx="3"/>'
+    : '<rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="9" y1="22" x2="15" y2="22"/>';
+}
+
+/* —— 通道一：浏览器 Web Speech —— */
 function startVoice() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { toast('当前浏览器不支持语音输入，请使用 Chrome / Edge'); return; }
-  if (recogActive) { stopVoice(); return; }   // 再点一次 = 取消
-
   stopSpeaking();
   duckAmbient(true);
   recogActive  = true;
@@ -783,11 +830,7 @@ function startVoice() {
   recog.continuous     = true;    // false 在手机上会于短暂静音后立即结束
   recog.interimResults = true;
 
-  recog.onstart = () => {
-    micBtn.classList.add('on');
-    micRing.style.display = 'block';
-    micBtn.querySelector('svg').innerHTML = '<rect x="3" y="3" width="18" height="18" rx="3"/>';
-  };
+  recog.onstart = () => setMicOn(true);
   recog.onresult = e => {
     let finalText = '', interim = '';
     for (const r of e.results) {
@@ -803,9 +846,13 @@ function startVoice() {
     }
   };
   recog.onerror = e => {
-    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-      toast('请在浏览器设置中允许使用麦克风');
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed' ||
+        e.error === 'network' || e.error === 'language-not-supported') {
+      // 浏览器识别服务不可用 → 永久切换到服务端识别（录音上传火山引擎）
+      sttMode = 'server';
+      try { localStorage.setItem('mc-stt', 'server'); } catch (e2) {}
       stopVoice();
+      startRecorder();
     }
     // no-speech / aborted 等交给 onend 自动重启
   };
@@ -825,15 +872,119 @@ function stopVoice() {
   recogActive = false;
   clearTimeout(voiceTimer);
   if (recog) { const r = recog; recog = null; r.onend = null; r.onresult = null; try { r.stop(); } catch (e) {} }
-  resetMic();
+  if (recording || recStream) { teardownRecorder(); trLine.textContent = ''; }
+  setMicOn(false);
   duckAmbient(false);
 }
-function resetMic() {
-  micBtn.classList.remove('on');
-  micRing.style.display = 'none';
-  micBtn.querySelector('svg').innerHTML = '<rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="9" y1="22" x2="15" y2="22"/>';
+
+/* —— 通道二：录音 → 火山引擎大模型识别 —— */
+async function startRecorder() {
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+  } catch (e) {
+    toast('无法使用麦克风，试试文字输入吧');
+    showTypeInput();
+    return;
+  }
+  stopSpeaking();
+  duckAmbient(true);
+  recStream = stream;
+  recChunks = [];
+  recording = true;
+  recCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const srcNode = recCtx.createMediaStreamSource(stream);
+  recNode = recCtx.createScriptProcessor(4096, 1, 1);
+  recNode.onaudioprocess = ev => { if (recording) recChunks.push(new Float32Array(ev.inputBuffer.getChannelData(0))); };
+  const mute = recCtx.createGain(); mute.gain.value = 0;
+  srcNode.connect(recNode); recNode.connect(mute); mute.connect(recCtx.destination);
+  setMicOn(true);
+  trLine.textContent = '（正在聆听……说完后再点一下麦克风）';
+  clearTimeout(voiceTimer);
+  voiceTimer = setTimeout(finishRecorder, 12000);   // 最长录 12 秒
 }
-micBtn.addEventListener('click', startVoice);
+function teardownRecorder() {
+  recording = false;
+  clearTimeout(voiceTimer);
+  if (recNode)   { try { recNode.disconnect(); } catch (e) {} recNode = null; }
+  if (recCtx)    { try { recCtx.close(); }      catch (e) {} recCtx  = null; }
+  if (recStream) { recStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} }); recStream = null; }
+  setMicOn(false);
+  duckAmbient(false);
+}
+async function finishRecorder() {
+  if (!recording) return;
+  const sr     = recCtx.sampleRate;
+  const chunks = recChunks; recChunks = [];
+  teardownRecorder();
+  let len = 0; chunks.forEach(c => len += c.length);
+  if (len < sr * 0.4) { trLine.textContent = ''; toast('没有听清，再试一次？'); return; }
+  const pcm = new Float32Array(len);
+  { let off = 0; chunks.forEach(c => { pcm.set(c, off); off += c.length; }); }
+  trLine.textContent = '魔毯正在理解你的话……';
+  const wav = encodeWav16k(pcm, sr);
+  let b64 = '';
+  { const bytes = new Uint8Array(wav); const step = 0x8000;
+    for (let i = 0; i < bytes.length; i += step) b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + step));
+    b64 = btoa(b64); }
+  try {
+    const res  = await fetch('/api/asr', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ audio: b64, format: 'wav' }),
+    });
+    const data = await res.json();
+    if (res.ok && data.text && data.text.trim()) {
+      trLine.textContent = '';
+      goTo(data.text.trim());
+    } else {
+      trLine.textContent = '';
+      toast('识别失败：' + ((data && (data.detail || data.error)) || '未知错误'));
+      showTypeInput();
+    }
+  } catch (e) {
+    trLine.textContent = '';
+    toast('识别服务未响应，试试文字输入吧');
+    showTypeInput();
+  }
+}
+// Float32 PCM → 16kHz 16bit 单声道 WAV
+function encodeWav16k(pcm, srcRate) {
+  const ratio  = srcRate / 16000;
+  const outLen = Math.floor(pcm.length / ratio);
+  const out    = new Int16Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const s = Math.max(-1, Math.min(1, pcm[Math.floor(i * ratio)] || 0));
+    out[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  const buf = new ArrayBuffer(44 + out.length * 2);
+  const v   = new DataView(buf);
+  const ws  = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  ws(0, 'RIFF'); v.setUint32(4, 36 + out.length * 2, true); ws(8, 'WAVE');
+  ws(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 16000, true); v.setUint32(28, 32000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  ws(36, 'data'); v.setUint32(40, out.length * 2, true);
+  for (let i = 0; i < out.length; i++) v.setInt16(44 + i * 2, out[i], true);
+  return buf;
+}
+
+/* —— 兜底：文字输入 —— */
+function showTypeInput() {
+  typeRow.style.display = 'flex';
+  setPhase('listening');
+  try { typeInput.focus(); } catch (e) {}
+}
+function submitType() {
+  const t = typeInput.value.trim();
+  if (!t) return;
+  typeInput.value = '';
+  typeRow.style.display = 'none';
+  goTo(t);
+}
+micBtn.addEventListener('click', micClick);
+document.getElementById('type-link').addEventListener('click', showTypeInput);
+document.getElementById('type-go').addEventListener('click', submitType);
+typeInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitType(); });
 
 /* ── 渲染蓝本卡片 ── */
 const bpGrid = document.getElementById('bp-grid');
@@ -862,6 +1013,6 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   if (finished) setPhase('listening');
 });
 </script>
-<!-- v4: mobile voice-input fix (continuous+auto-restart, ambient ducking) -->
+<!-- v5: server ASR fallback (Volcengine bigmodel flash) + text input -->
 </body>
 </html>
