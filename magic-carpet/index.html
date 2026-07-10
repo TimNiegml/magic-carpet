@@ -241,12 +241,12 @@ html,body{height:100%;background:#0c0b09}
 /* ════════════════════════════════════════
    蓝本：5 段固定开场（上天 / 下海 / 登山 / 神话 / 科幻）
    固定文案 → 语音可预取缓存 → 点击零延时播放
-   emotion 需 VOLC_VOICE 支持多情感，不支持会自动降级
+   pauseMs = 句间停顿；emotion 需音色支持多情感，不支持会自动降级
 ════════════════════════════════════════ */
 const BLUEPRINTS = [
   {
     id: 'sky', emoji: '☁️', title: '御风上天', sub: '云海 · 极光', ambient: 'wind',
-    emotion: null, speed: 0.9,
+    emotion: null, speed: 0.9, pauseMs: 700,
     sentences: [
       '抓稳了，魔毯要起飞了。',
       '风从耳边掠过，城市在脚下缩成一片闪烁的灯海。',
@@ -260,7 +260,7 @@ const BLUEPRINTS = [
   },
   {
     id: 'sea', emoji: '🌊', title: '深海龙宫', sub: '鲸歌 · 琉璃', ambient: 'ocean',
-    emotion: null, speed: 0.88,
+    emotion: null, speed: 0.88, pauseMs: 800,
     sentences: [
       '深吸一口气，魔毯化作一叶扁舟，潜入海面。',
       '阳光在头顶碎成一片摇晃的金箔，越往下，海水越蓝，越静。',
@@ -274,7 +274,7 @@ const BLUEPRINTS = [
   },
   {
     id: 'mountain', emoji: '🏔️', title: '雪山之巅', sub: '日出 · 经幡', ambient: 'wind',
-    emotion: null, speed: 0.9,
+    emotion: null, speed: 0.9, pauseMs: 700,
     sentences: [
       '系紧披风，我们去看雪山日出。',
       '魔毯贴着山脊缓缓爬升，松林的清香混着雪的凉意，扑面而来。',
@@ -288,7 +288,7 @@ const BLUEPRINTS = [
   },
   {
     id: 'myth', emoji: '🌙', title: '月宫奇遇', sub: '嫦娥 · 桂香', ambient: 'space',
-    emotion: null, speed: 0.88,
+    emotion: null, speed: 0.88, pauseMs: 800,
     sentences: [
       '闭上眼，我们穿过一扇月光织成的门。',
       '桂花的香气先到了，你已经站在广寒宫的玉阶前。',
@@ -302,7 +302,7 @@ const BLUEPRINTS = [
   },
   {
     id: 'scifi', emoji: '🪐', title: '星际漫游', sub: '空间站 · 土星环', ambient: 'space',
-    emotion: null, speed: 0.92,
+    emotion: null, speed: 0.92, pauseMs: 600,
     sentences: [
       '坐稳，魔毯即将跃迁。',
       '星光在你眼前拉成一道道银色的丝线，三，二，一。',
@@ -361,17 +361,17 @@ resizeCanvas();
 requestAnimationFrame(drawStars);
 window.addEventListener('resize', resizeCanvas);
 
-/* ── Ambient Audio ── */
+/* ════════════════════════════════════════
+   环境音：冥想风格和弦铺底（正弦波五声音阶 + 呼吸式起伏）
+   所有停止都带 0.9s 淡出，杜绝爆音/吱吱声
+════════════════════════════════════════ */
 let audioCtx    = null;
 let activeNodes = [];
+let ambMaster   = null;
 
 function getAC() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   return audioCtx;
-}
-function stopAmbient() {
-  activeNodes.forEach(n => { try { n.stop(); } catch(e) {} });
-  activeNodes = [];
 }
 function mkNoise(ac, dur) {
   const buf = ac.createBuffer(1, ac.sampleRate * dur, ac.sampleRate);
@@ -379,54 +379,98 @@ function mkNoise(ac, dur) {
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   return buf;
 }
-function playWind() {
+// 场景总线：淡入进场
+function ambientBus(level, fadeSec) {
   const ac  = getAC();
-  const src = ac.createBufferSource(); src.buffer = mkNoise(ac, 5); src.loop = true;
-  const f   = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 380; f.Q.value = 0.42;
-  const g   = ac.createGain(); g.gain.setValueAtTime(0, ac.currentTime); g.gain.linearRampToValueAtTime(0.11, ac.currentTime + 2.5);
-  src.connect(f); f.connect(g); g.connect(ac.destination); src.start(); activeNodes.push(src);
+  const bus = ac.createGain();
+  bus.gain.setValueAtTime(0.0001, ac.currentTime);
+  bus.gain.linearRampToValueAtTime(level, ac.currentTime + fadeSec);
+  bus.connect(ac.destination);
+  ambMaster = bus;
+  return bus;
 }
+// 淡出后再停振荡器，避免瞬间掐断产生的咔哒/吱吱声
+function stopAmbient() {
+  const nodes = activeNodes;
+  const bus   = ambMaster;
+  activeNodes = [];
+  ambMaster   = null;
+  if (bus) {
+    const ac = getAC();
+    try {
+      bus.gain.cancelScheduledValues(ac.currentTime);
+      bus.gain.setValueAtTime(Math.max(bus.gain.value, 0.0001), ac.currentTime);
+      bus.gain.linearRampToValueAtTime(0.0001, ac.currentTime + 0.9);
+    } catch (e) {}
+  }
+  setTimeout(() => {
+    nodes.forEach(n => { try { n.stop(); } catch (e) {} });
+    if (bus) { try { bus.disconnect(); } catch (e) {} }
+  }, 1000);
+}
+// 和弦铺底：每个音 = 双正弦微失谐（温暖感）+ 极慢 LFO 呼吸起伏
+function pad(bus, freqs, lvl) {
+  const ac = getAC();
+  freqs.forEach((f0, i) => {
+    const o1  = ac.createOscillator(); o1.type = 'sine'; o1.frequency.value = f0;
+    const o2  = ac.createOscillator(); o2.type = 'sine'; o2.frequency.value = f0 * 1.004;
+    const g   = ac.createGain(); g.gain.value = lvl / (1 + i * 0.35);
+    const lfo = ac.createOscillator(); lfo.frequency.value = 0.04 + i * 0.021;
+    const lg  = ac.createGain(); lg.gain.value = g.gain.value * 0.45;
+    lfo.connect(lg); lg.connect(g.gain);
+    o1.connect(g); o2.connect(g); g.connect(bus);
+    o1.start(); o2.start(); lfo.start();
+    activeNodes.push(o1, o2, lfo);
+  });
+}
+// 柔和气息声：深度低通的噪声，可带缓慢起伏
+function airNoise(bus, cutoff, lvl, lfoRate) {
+  const ac  = getAC();
+  const src = ac.createBufferSource(); src.buffer = mkNoise(ac, 6); src.loop = true;
+  const f   = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = cutoff; f.Q.value = 0.4;
+  const g   = ac.createGain(); g.gain.value = lvl;
+  if (lfoRate) {
+    const lfo = ac.createOscillator(); lfo.frequency.value = lfoRate;
+    const lg  = ac.createGain(); lg.gain.value = lvl * 0.6;
+    lfo.connect(lg); lg.connect(g.gain); lfo.start(); activeNodes.push(lfo);
+  }
+  src.connect(f); f.connect(g); g.connect(bus);
+  src.start(); activeNodes.push(src);
+}
+// 天空/高原：A 大调五声铺底 + 轻气息
+function playWind() {
+  const bus = ambientBus(0.16, 3);
+  pad(bus, [110, 164.8, 220, 329.6], 0.16);
+  airNoise(bus, 240, 0.10, 0.05);
+}
+// 海洋：低音涌动 + 缓慢波浪起伏
 function playOcean() {
-  const ac = getAC();
-  for (let i = 0; i < 3; i++) {
-    const osc = ac.createOscillator(); osc.type = 'sine'; osc.frequency.value = 42 + i * 26;
-    const lfo = ac.createOscillator(); lfo.frequency.value = 0.06 + i * 0.035;
-    const lg  = ac.createGain(); lg.gain.value = 9; lfo.connect(lg); lg.connect(osc.frequency);
-    const g   = ac.createGain(); g.gain.value = 0.032;
-    osc.connect(g); g.connect(ac.destination); osc.start(); lfo.start(); activeNodes.push(osc, lfo);
-  }
-  const src = ac.createBufferSource(); src.buffer = mkNoise(ac, 5); src.loop = true;
-  const f   = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 110;
-  const g   = ac.createGain(); g.gain.setValueAtTime(0, ac.currentTime); g.gain.linearRampToValueAtTime(0.05, ac.currentTime + 3);
-  src.connect(f); f.connect(g); g.connect(ac.destination); src.start(); activeNodes.push(src);
+  const bus = ambientBus(0.16, 3.5);
+  pad(bus, [82.4, 123.5, 164.8, 246.9], 0.17);
+  airNoise(bus, 140, 0.16, 0.07);
 }
+// 星空：清冷高音微光
 function playSpace() {
-  const ac = getAC();
-  for (let i = 0; i < 4; i++) {
-    const osc = ac.createOscillator(); osc.type = 'sine'; osc.frequency.value = 150 + i * 105;
-    const lfo = ac.createOscillator(); lfo.frequency.value = 0.035 + i * 0.02;
-    const lg  = ac.createGain(); lg.gain.value = 3.5; lfo.connect(lg); lg.connect(osc.frequency);
-    const g   = ac.createGain(); g.gain.setValueAtTime(0, ac.currentTime); g.gain.linearRampToValueAtTime(0.018, ac.currentTime + 4);
-    osc.connect(g); g.connect(ac.destination); osc.start(); lfo.start(); activeNodes.push(osc, lfo);
-  }
+  const bus = ambientBus(0.11, 4);
+  pad(bus, [130.8, 196, 261.6, 392, 523.3], 0.12);
 }
 function pickAmbient(key) {
   if (key === 'space' || /月|太空|星|天宫|仙|宇宙|广寒|嫦|空间站|土星|银河/.test(key)) playSpace();
   else if (key === 'ocean' || /海|水|龙宫|深|鲸|珊瑚|潜/.test(key)) playOcean();
   else playWind();
 }
-// 起飞"呼——"过渡音效：噪声 + 滤波扫频，掩盖等待
+// 起飞"呼——"过渡音效（柔化版）：低通扫频，音量克制
 function playWhoosh() {
   const ac  = getAC();
   const src = ac.createBufferSource(); src.buffer = mkNoise(ac, 3);
-  const f   = ac.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.1;
-  f.frequency.setValueAtTime(180, ac.currentTime);
-  f.frequency.exponentialRampToValueAtTime(1400, ac.currentTime + 1.1);
-  f.frequency.exponentialRampToValueAtTime(260, ac.currentTime + 2.6);
+  const f   = ac.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 0.7;
+  f.frequency.setValueAtTime(150, ac.currentTime);
+  f.frequency.exponentialRampToValueAtTime(850, ac.currentTime + 1.2);
+  f.frequency.exponentialRampToValueAtTime(180, ac.currentTime + 2.7);
   const g = ac.createGain();
   g.gain.setValueAtTime(0.0001, ac.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.22, ac.currentTime + 0.7);
-  g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 2.8);
+  g.gain.exponentialRampToValueAtTime(0.1, ac.currentTime + 0.8);
+  g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 2.9);
   src.connect(f); f.connect(g); g.connect(ac.destination);
   src.start(); src.stop(ac.currentTime + 3);
 }
@@ -434,7 +478,8 @@ function playWhoosh() {
 /* ── UI State ── */
 let phase = 'init';
 let recog = null;
-let currentAudio = null;
+let currentSrc   = null;        // WebAudio 播放源
+let currentAudio = null;        // HTMLAudio 兜底
 let speakToken   = 0;           // 打断旧的播放流水线
 let lastJourneyText = '';       // 供续篇衔接
 
@@ -468,6 +513,8 @@ function toast(msg) {
 
 /* ════════════════════════════════════════
    TTS：Cache Storage 缓存 + 分句流水线
+   每句 WebAudio 播放（50ms 淡入 / 80ms 淡出，无爆音）
+   句间自然停顿 pauseMs（默认 600ms）
 ════════════════════════════════════════ */
 const TTS_CACHE = 'mc-tts-v1';   // 换音色/情感后请修改版本号使缓存失效
 let cacheApi = null;
@@ -508,10 +555,44 @@ async function ttsBlob(text, opts = {}) {
   return blob;
 }
 
+// WebAudio 播放单句：带淡入淡出；解码失败退回 HTMLAudio
+async function playBlob(blob) {
+  const ac = getAC();
+  try {
+    const audioBuf = await ac.decodeAudioData(await blob.arrayBuffer());
+    return await new Promise(resolve => {
+      const src = ac.createBufferSource(); src.buffer = audioBuf;
+      const g = ac.createGain();
+      const t = ac.currentTime, d = audioBuf.duration;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(1, t + 0.05);
+      const fadeAt = Math.max(t + 0.05, t + d - 0.08);
+      g.gain.setValueAtTime(1, fadeAt);
+      g.gain.linearRampToValueAtTime(0.0001, t + d);
+      src.connect(g); g.connect(ac.destination);
+      currentSrc = src;
+      src.onended = () => { currentSrc = null; try { g.disconnect(); } catch (e) {} resolve(); };
+      src.start();
+    });
+  } catch (e) {
+    return new Promise(resolve => {
+      const url = URL.createObjectURL(blob);
+      const a = new Audio(url); currentAudio = a;
+      const done = () => { URL.revokeObjectURL(url); currentAudio = null; resolve(); };
+      a.onended = done; a.onerror = done; a.play().catch(done);
+    });
+  }
+}
+// 可被打断的停顿
+function pauseFor(ms, token) {
+  return new Promise(r => setTimeout(() => r(token === speakToken), ms));
+}
+
 // 分句流水线：播第 i 句时并行预取第 i+1 句 → 首句到手即开播
 function speakSentences(sentences, opts = {}) {
   return new Promise(resolve => {
     const token   = ++speakToken;
+    const pauseMs = opts.pauseMs || 600;
     const fetches = new Array(sentences.length).fill(null);
     let warned    = false;
     const ensure  = i => {
@@ -533,20 +614,21 @@ function speakSentences(sentences, opts = {}) {
       if (token !== speakToken) return resolve(false);
       ensure(idx + 1);                                       // 边播边取下一句
       if (opts.onSentence) opts.onSentence(idx);
-      if (!blob) { idx++; return next(); }
-      const url   = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      currentAudio = audio;
-      const done = () => { URL.revokeObjectURL(url); currentAudio = null; idx++; next(); };
-      audio.onended = done;
-      audio.onerror = done;
-      audio.play().catch(done);
+      if (blob) await playBlob(blob);
+      if (token !== speakToken) return resolve(false);
+      idx++;
+      if (idx < sentences.length) {                          // 句间自然停顿
+        const alive = await pauseFor(pauseMs, token);
+        if (!alive) return resolve(false);
+      }
+      next();
     }
     next();
   });
 }
 function stopSpeaking() {
   speakToken++;
+  if (currentSrc)   { try { currentSrc.stop(); }   catch (e) {} currentSrc   = null; }
   if (currentAudio) { try { currentAudio.pause(); } catch (e) {} currentAudio = null; }
 }
 
@@ -558,7 +640,7 @@ function renderProgress(sentences, uptoIdx) {
   ).join('');
 }
 
-/* ── 后台预取：intro + 过渡语 + 全部蓝本（顺序请求，避免打爆接口）── */
+/* ── 后台预取：过渡语 + 全部蓝本（顺序请求，避免打爆接口）── */
 async function prefetchAll() {
   const jobs = [];
   BLUEPRINTS.forEach(bp => jobs.push({ list: bp.sentences, opts: { emotion: bp.emotion, speed: bp.speed }, bp }));
@@ -595,7 +677,7 @@ async function startBlueprint(bp) {
 
   lastJourneyText = bp.sentences.join('');
   const finished = await speakSentences(bp.sentences, {
-    emotion: bp.emotion, speed: bp.speed,
+    emotion: bp.emotion, speed: bp.speed, pauseMs: bp.pauseMs,
     onSentence: i => renderProgress(bp.sentences, i),
   });
   if (finished) {
@@ -626,7 +708,7 @@ async function goTo(dest) {
     body:    JSON.stringify({ destination: dest, context: lastJourneyText || undefined }),
   }).then(r => r.json()).catch(() => null);
 
-  await speakSentences(TRANSITION_SENTENCES, {});
+  await speakSentences(TRANSITION_SENTENCES, { pauseMs: 500 });
 
   setPhase('flying');
   const data = await narratePromise;
@@ -643,6 +725,7 @@ async function goTo(dest) {
   renderProgress(sentences, -1);
 
   const finished = await speakSentences(sentences, {
+    pauseMs: 650,
     onSentence: i => renderProgress(sentences, i),
   });
   if (finished) {
@@ -717,11 +800,12 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   setPhase('speaking');
   renderProgress(INTRO_SENTENCES, -1);
   const finished = await speakSentences(INTRO_SENTENCES, {
+    pauseMs: 800,
     onSentence: i => renderProgress(INTRO_SENTENCES, i),
   });
   if (finished) setPhase('listening');
 });
 </script>
-<!-- v2: blueprints + sentence-pipeline TTS -->
+<!-- v3: meditation-pad ambient + fade-in/out TTS + inter-sentence pauses -->
 </body>
 </html>
