@@ -27,6 +27,23 @@ html,body{height:100%;background:#0c0b09}
   letter-spacing:10px;text-align:center;margin-bottom:32px
 }
 
+/* ── Start overlay（解锁音频必须的用户手势）── */
+#start-overlay{
+  position:fixed;inset:0;z-index:50;
+  background:rgba(12,11,9,0.92);backdrop-filter:blur(3px);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;
+  transition:opacity 0.8s
+}
+#start-overlay.hide{opacity:0;pointer-events:none}
+.start-btn{
+  border:0.5px solid #9a8048;background:rgba(154,128,72,0.1);
+  color:#c9a84c;font-family:'Noto Serif SC',serif;font-size:15px;
+  letter-spacing:6px;padding:16px 44px;border-radius:40px;cursor:pointer;
+  transition:all 0.3s;animation:blink-soft 2.6s ease-in-out infinite
+}
+.start-btn:hover{background:rgba(154,128,72,0.25);border-color:#c9a84c}
+.start-hint{font-size:10px;letter-spacing:4px;color:#6a5228;font-family:sans-serif}
+
 /* ── Carpet SVG ── */
 .carpet-wrap{margin-bottom:22px;animation:carpet-float 5s ease-in-out infinite}
 
@@ -39,7 +56,7 @@ html,body{height:100%;background:#0c0b09}
 
 /* ── Narration ── */
 .narration-box{
-  max-width:500px;width:100%;
+  max-width:520px;width:100%;
   border:0.5px solid rgba(201,168,76,0.2);border-radius:16px;
   padding:30px 34px;text-align:center;line-height:2.1;
   font-size:1rem;font-weight:300;min-height:148px;
@@ -49,6 +66,8 @@ html,body{height:100%;background:#0c0b09}
 }
 #narration-text{color:#8a7040;transition:color 0.6s}
 #narration-text.bright{color:#ddd0a0}
+#narration-text .said{color:#ddd0a0}
+#narration-text .unsaid{color:#6a5b35}
 
 /* ── Speaking bars ── */
 #bars{display:none;gap:5px;align-items:flex-end;height:24px;margin-bottom:20px}
@@ -84,8 +103,28 @@ html,body{height:100%;background:#0c0b09}
 .mic-btn.on{background:rgba(154,128,72,0.3);border-color:#c9a84c}
 .mic-btn.on svg{stroke:#e8d0a0}
 
-/* ── Destination chips ── */
-.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:440px}
+/* ── Blueprint cards ── */
+.bp-grid{
+  display:flex;flex-wrap:wrap;gap:10px;justify-content:center;
+  max-width:560px;margin-bottom:6px
+}
+.bp-card{
+  width:100px;padding:14px 8px 12px;text-align:center;cursor:pointer;
+  background:rgba(154,128,72,0.06);border:0.5px solid rgba(154,128,72,0.28);
+  border-radius:14px;transition:all 0.25s;position:relative
+}
+.bp-card:hover{background:rgba(154,128,72,0.18);border-color:#9a8048;transform:translateY(-3px)}
+.bp-emoji{font-size:20px;margin-bottom:7px}
+.bp-title{font-size:13px;color:#c9a84c;letter-spacing:2px;margin-bottom:5px}
+.bp-sub{font-size:9px;color:#6a5228;font-family:sans-serif;letter-spacing:1px;line-height:1.6}
+.bp-ready{
+  position:absolute;top:7px;right:9px;width:5px;height:5px;border-radius:50%;
+  background:#4a7c4a;opacity:0;transition:opacity 0.5s
+}
+.bp-card.cached .bp-ready{opacity:0.85}
+
+/* ── Free chips ── */
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:460px;margin-top:14px}
 .chip{
   background:rgba(154,128,72,0.07);border:0.5px solid rgba(154,128,72,0.28);
   border-radius:20px;color:#9a8048;font-size:12px;padding:6px 15px;
@@ -100,30 +139,36 @@ html,body{height:100%;background:#0c0b09}
   font-family:sans-serif;animation:blink-soft 2s ease-in-out infinite
 }
 
-/* ── Loading spinner ── */
-#loading{display:none;flex-direction:column;align-items:center;gap:12px;margin-bottom:24px}
-.spinner{
-  width:24px;height:24px;border-radius:50%;
-  border:1.5px solid rgba(201,168,76,0.15);
-  border-top-color:#c9a84c;
-  animation:spin 0.9s linear infinite
+/* ── Toast（错误提示）── */
+#toast{
+  position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:60;
+  background:rgba(60,30,25,0.92);border:0.5px solid rgba(200,110,90,0.4);
+  color:#d8a090;font-size:12px;font-family:sans-serif;letter-spacing:1px;
+  padding:10px 22px;border-radius:24px;opacity:0;pointer-events:none;
+  transition:opacity 0.4s;max-width:80vw;text-align:center
 }
-.loading-text{font-size:11px;letter-spacing:4px;color:#6a5228;font-family:sans-serif}
+#toast.show{opacity:1}
 
 /* ── Animations ── */
 @keyframes carpet-float{0%,100%{transform:translateY(0) rotate(-1.5deg)}50%{transform:translateY(-16px) rotate(1.5deg)}}
 @keyframes bar-up{from{height:3px}to{height:20px}}
 @keyframes ring-out{0%{transform:scale(1);opacity:0.7}100%{transform:scale(2.4);opacity:0}}
 @keyframes blink-soft{0%,100%{opacity:0.4}50%{opacity:0.9}}
-@keyframes spin{to{transform:rotate(360deg)}}
 @keyframes fade-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-
 .fade-in{animation:fade-in 0.6s ease forwards}
 </style>
 </head>
 <body>
 <div id="app">
   <canvas id="star-canvas"></canvas>
+
+  <!-- 开始遮罩：浏览器要求音频播放必须由用户手势触发 -->
+  <div id="start-overlay">
+    <div class="eyebrow">HOFFMAN · 冥想旅程</div>
+    <div class="main-title" style="margin-bottom:6px">魔 毯 之 旅</div>
+    <button class="start-btn" id="start-btn">轻触魔毯 · 开始旅程</button>
+    <div class="start-hint">建议佩戴耳机 · 找一个安静的角落</div>
+  </div>
 
   <div class="z eyebrow">HOFFMAN · 冥想旅程</div>
   <div class="z main-title">魔 毯 之 旅</div>
@@ -166,12 +211,6 @@ html,body{height:100%;background:#0c0b09}
     <div class="bar" style="animation-delay:0.48s"></div>
   </div>
 
-  <!-- Loading -->
-  <div class="z" id="loading">
-    <div class="spinner"></div>
-    <div class="loading-text">魔毯感应中……</div>
-  </div>
-
   <!-- Flying -->
   <div class="z" id="flying-wrap">
     <div class="flying-text">✦ &nbsp; 魔毯飞行中 &nbsp; ✦</div>
@@ -179,29 +218,117 @@ html,body{height:100%;background:#0c0b09}
 
   <!-- Interaction -->
   <div class="z" id="interact">
-    <div class="cta">告诉魔毯，你想飞向哪里？</div>
+    <div class="cta" id="cta-text">选择一段旅程，或告诉魔毯你想去哪里</div>
     <div id="transcript-line"></div>
     <div class="mic-wrap">
       <div class="mic-ring" id="mic-ring"></div>
       <button class="mic-btn" id="mic-btn" aria-label="语音输入">
-        <!-- Microphone icon -->
         <svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="9" y1="22" x2="15" y2="22"/></svg>
       </button>
     </div>
-    <div class="chips" id="chips">
-      <div class="chip" onclick="goTo('月球')">月球</div>
-      <div class="chip" onclick="goTo('深海龙宫')">深海龙宫</div>
-      <div class="chip" onclick="goTo('广寒宫见嫦娥')">广寒宫</div>
-      <div class="chip" onclick="goTo('花果山见孙悟空')">花果山</div>
-      <div class="chip" onclick="goTo('加利福尼亚州')">加利福尼亚</div>
-      <div class="chip" onclick="goTo('喜马拉雅山')">喜马拉雅</div>
-      <div class="chip" onclick="goTo('撒哈拉沙漠')">撒哈拉</div>
+    <div class="bp-grid" id="bp-grid"></div>
+    <div class="chips">
+      <div class="chip" onclick="goTo('撒哈拉沙漠的星夜')">撒哈拉星夜</div>
       <div class="chip" onclick="goTo('北极看极光')">北极极光</div>
+      <div class="chip" onclick="goTo('花果山见孙悟空')">花果山</div>
     </div>
   </div>
 </div>
 
+<div id="toast"></div>
+
 <script>
+/* ════════════════════════════════════════
+   蓝本：5 段固定开场（上天 / 下海 / 登山 / 神话 / 科幻）
+   固定文案 → 语音可预取缓存 → 点击零延时播放
+   emotion 需 VOLC_VOICE 支持多情感，不支持会自动降级
+════════════════════════════════════════ */
+const BLUEPRINTS = [
+  {
+    id: 'sky', emoji: '☁️', title: '御风上天', sub: '云海 · 极光', ambient: 'wind',
+    emotion: null, speed: 0.9,
+    sentences: [
+      '抓稳了，魔毯要起飞了。',
+      '风从耳边掠过，城市在脚下缩成一片闪烁的灯海。',
+      '你们一路向上，穿过微凉的云层，云絮像棉花糖一样从指尖滑过。',
+      '再往上，天空由湛蓝转为深紫，星星一颗一颗亮起来。',
+      '极光在你身旁舒展，绿色与紫色的光带，像丝绸一样缓缓流动。',
+      '你伸出手，星光落在掌心，微微发烫。',
+      '魔毯停在平流层的边缘，世界安静得只剩你的呼吸。',
+      '想去更高的地方，还是俯瞰这颗蓝色星球？告诉魔毯。',
+    ],
+  },
+  {
+    id: 'sea', emoji: '🌊', title: '深海龙宫', sub: '鲸歌 · 琉璃', ambient: 'ocean',
+    emotion: null, speed: 0.88,
+    sentences: [
+      '深吸一口气，魔毯化作一叶扁舟，潜入海面。',
+      '阳光在头顶碎成一片摇晃的金箔，越往下，海水越蓝，越静。',
+      '成群的发光水母从你身边飘过，像一盏一盏温柔的小灯笼。',
+      '远处传来鲸鱼低沉的歌声，穿过整片海洋，落进你的胸口。',
+      '珊瑚宫殿在幽蓝中亮起，龙宫的琉璃瓦，闪着珍珠的光。',
+      '水流托着你，像被大海轻轻抱住。',
+      '你在这片温柔的深蓝里，慢慢下沉，慢慢放松。',
+      '想去敲开龙宫的大门吗？告诉魔毯。',
+    ],
+  },
+  {
+    id: 'mountain', emoji: '🏔️', title: '雪山之巅', sub: '日出 · 经幡', ambient: 'wind',
+    emotion: null, speed: 0.9,
+    sentences: [
+      '系紧披风，我们去看雪山日出。',
+      '魔毯贴着山脊缓缓爬升，松林的清香混着雪的凉意，扑面而来。',
+      '云海在脚下翻涌，八千米的峰顶，就在前方。',
+      '第一缕阳光越过山脊，雪坡瞬间被染成金红色。',
+      '风很轻，经幡在远处哗啦作响，像大地的呼吸。',
+      '你坐在世界之巅，胸腔里满是清冽干净的空气。',
+      '天地辽阔，而你安然。',
+      '想沿着冰川继续前行吗？告诉魔毯。',
+    ],
+  },
+  {
+    id: 'myth', emoji: '🌙', title: '月宫奇遇', sub: '嫦娥 · 桂香', ambient: 'space',
+    emotion: null, speed: 0.88,
+    sentences: [
+      '闭上眼，我们穿过一扇月光织成的门。',
+      '桂花的香气先到了，你已经站在广寒宫的玉阶前。',
+      '嫦娥提着一盏莲花灯迎面走来，衣袖上落满银色的月尘。',
+      '玉兔在桂树下捣药，笃，笃，笃，像一首安眠的歌。',
+      '从月宫望下去，地球是一枚悬在黑丝绒上的蓝宝石。',
+      '嫦娥为你斟了一杯桂花酿，轻声说，难得有客人来。',
+      '月光浸过你的肩膀，温柔，而清凉。',
+      '想听嫦娥讲月宫的故事吗？告诉魔毯。',
+    ],
+  },
+  {
+    id: 'scifi', emoji: '🪐', title: '星际漫游', sub: '空间站 · 土星环', ambient: 'space',
+    emotion: null, speed: 0.92,
+    sentences: [
+      '坐稳，魔毯即将跃迁。',
+      '星光在你眼前拉成一道道银色的丝线，三，二，一。',
+      '眼前豁然开朗，一座巨大的环形空间站，正静静悬在土星光环之上。',
+      '万吨的冰晶环带在舷窗外缓缓旋转，折射出七彩的光。',
+      '空间站里的人工晨光刚刚亮起，温柔得像春天的清晨。',
+      '一艘飞船拖着淡蓝色的尾焰远去，安静得没有一点声音。',
+      '你漂浮在观景舱的中央，失重让身体前所未有地放松。',
+      '想降落到土星的卫星上看看吗？告诉魔毯。',
+    ],
+  },
+];
+
+// 开场白 & 通用起飞过渡语（同样会被预取缓存）
+const INTRO_SENTENCES = [
+  '欢迎登上魔毯……',
+  '请慢慢闭上眼睛，深呼吸，让自己完全放松……',
+  '你坐在一块柔软温暖的金色魔毯上，它轻轻飘浮在云端。',
+  '微风轻抚你的面颊，天空湛蓝而深远……',
+  '魔毯在等待你的心意，你想飞向哪里？',
+];
+const TRANSITION_SENTENCES = [
+  '魔毯感受到了你的心意……',
+  '它轻轻一颤，缓缓升起，向着你心中的方向飞去……',
+];
+
 /* ── Stars ── */
 const canvas = document.getElementById('star-canvas');
 const ctx2d  = canvas.getContext('2d');
@@ -242,7 +369,7 @@ function getAC() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   return audioCtx;
 }
-function stopAudio() {
+function stopAmbient() {
   activeNodes.forEach(n => { try { n.stop(); } catch(e) {} });
   activeNodes = [];
 }
@@ -256,7 +383,7 @@ function playWind() {
   const ac  = getAC();
   const src = ac.createBufferSource(); src.buffer = mkNoise(ac, 5); src.loop = true;
   const f   = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 380; f.Q.value = 0.42;
-  const g   = ac.createGain(); g.gain.setValueAtTime(0, ac.currentTime); g.gain.linearRampToValueAtTime(0.13, ac.currentTime + 2.5);
+  const g   = ac.createGain(); g.gain.setValueAtTime(0, ac.currentTime); g.gain.linearRampToValueAtTime(0.11, ac.currentTime + 2.5);
   src.connect(f); f.connect(g); g.connect(ac.destination); src.start(); activeNodes.push(src);
 }
 function playOcean() {
@@ -265,12 +392,12 @@ function playOcean() {
     const osc = ac.createOscillator(); osc.type = 'sine'; osc.frequency.value = 42 + i * 26;
     const lfo = ac.createOscillator(); lfo.frequency.value = 0.06 + i * 0.035;
     const lg  = ac.createGain(); lg.gain.value = 9; lfo.connect(lg); lg.connect(osc.frequency);
-    const g   = ac.createGain(); g.gain.value = 0.036;
+    const g   = ac.createGain(); g.gain.value = 0.032;
     osc.connect(g); g.connect(ac.destination); osc.start(); lfo.start(); activeNodes.push(osc, lfo);
   }
   const src = ac.createBufferSource(); src.buffer = mkNoise(ac, 5); src.loop = true;
   const f   = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 110;
-  const g   = ac.createGain(); g.gain.setValueAtTime(0, ac.currentTime); g.gain.linearRampToValueAtTime(0.055, ac.currentTime + 3);
+  const g   = ac.createGain(); g.gain.setValueAtTime(0, ac.currentTime); g.gain.linearRampToValueAtTime(0.05, ac.currentTime + 3);
   src.connect(f); f.connect(g); g.connect(ac.destination); src.start(); activeNodes.push(src);
 }
 function playSpace() {
@@ -279,120 +406,275 @@ function playSpace() {
     const osc = ac.createOscillator(); osc.type = 'sine'; osc.frequency.value = 150 + i * 105;
     const lfo = ac.createOscillator(); lfo.frequency.value = 0.035 + i * 0.02;
     const lg  = ac.createGain(); lg.gain.value = 3.5; lfo.connect(lg); lg.connect(osc.frequency);
-    const g   = ac.createGain(); g.gain.setValueAtTime(0, ac.currentTime); g.gain.linearRampToValueAtTime(0.02, ac.currentTime + 4);
+    const g   = ac.createGain(); g.gain.setValueAtTime(0, ac.currentTime); g.gain.linearRampToValueAtTime(0.018, ac.currentTime + 4);
     osc.connect(g); g.connect(ac.destination); osc.start(); lfo.start(); activeNodes.push(osc, lfo);
   }
 }
-function pickAmbient(dest) {
-  if (/月|太空|星|天宫|仙|宇宙|广寒|嫦/.test(dest)) playSpace();
-  else if (/海|水|龙宫|深|鲸|珊瑚|潜/.test(dest)) playOcean();
+function pickAmbient(key) {
+  if (key === 'space' || /月|太空|星|天宫|仙|宇宙|广寒|嫦|空间站|土星|银河/.test(key)) playSpace();
+  else if (key === 'ocean' || /海|水|龙宫|深|鲸|珊瑚|潜/.test(key)) playOcean();
   else playWind();
+}
+// 起飞"呼——"过渡音效：噪声 + 滤波扫频，掩盖等待
+function playWhoosh() {
+  const ac  = getAC();
+  const src = ac.createBufferSource(); src.buffer = mkNoise(ac, 3);
+  const f   = ac.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.1;
+  f.frequency.setValueAtTime(180, ac.currentTime);
+  f.frequency.exponentialRampToValueAtTime(1400, ac.currentTime + 1.1);
+  f.frequency.exponentialRampToValueAtTime(260, ac.currentTime + 2.6);
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, ac.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.22, ac.currentTime + 0.7);
+  g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 2.8);
+  src.connect(f); f.connect(g); g.connect(ac.destination);
+  src.start(); src.stop(ac.currentTime + 3);
 }
 
 /* ── UI State ── */
 let phase = 'init';
 let recog = null;
 let currentAudio = null;
+let speakToken   = 0;           // 打断旧的播放流水线
+let lastJourneyText = '';       // 供续篇衔接
 
-const nt          = document.getElementById('narration-text');
-const sl          = document.getElementById('scene-label');
-const barsEl      = document.getElementById('bars');
-const interactEl  = document.getElementById('interact');
-const flyWrap     = document.getElementById('flying-wrap');
-const loadEl      = document.getElementById('loading');
-const micBtn      = document.getElementById('mic-btn');
-const micRing     = document.getElementById('mic-ring');
-const trLine      = document.getElementById('transcript-line');
+const nt         = document.getElementById('narration-text');
+const sl         = document.getElementById('scene-label');
+const barsEl     = document.getElementById('bars');
+const interactEl = document.getElementById('interact');
+const flyWrap    = document.getElementById('flying-wrap');
+const micBtn     = document.getElementById('mic-btn');
+const micRing    = document.getElementById('mic-ring');
+const trLine     = document.getElementById('transcript-line');
+const ctaText    = document.getElementById('cta-text');
+const toastEl    = document.getElementById('toast');
 
 function setPhase(p) {
   phase = p;
   barsEl.style.display     = 'none';
   interactEl.style.display = 'none';
   flyWrap.style.display    = 'none';
-  loadEl.style.display     = 'none';
   if (p === 'speaking')  barsEl.style.display     = 'flex';
-  if (p === 'listening') interactEl.style.display  = 'flex';
-  if (p === 'flying')    flyWrap.style.display     = 'block';
-  if (p === 'loading')   loadEl.style.display      = 'flex';
+  if (p === 'listening') interactEl.style.display = 'flex';
+  if (p === 'flying')    flyWrap.style.display    = 'block';
+}
+let toastTimer = null;
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 5000);
 }
 
-/* ── TTS via Volcengine (through /api/tts) ── */
-async function speakWithAPI(text, onEnd) {
-  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-  setPhase('speaking');
+/* ════════════════════════════════════════
+   TTS：Cache Storage 缓存 + 分句流水线
+════════════════════════════════════════ */
+const TTS_CACHE = 'mc-tts-v1';   // 换音色/情感后请修改版本号使缓存失效
+let cacheApi = null;
+async function getCache() {
+  if (cacheApi !== null) return cacheApi;
+  try { cacheApi = 'caches' in window ? await caches.open(TTS_CACHE) : false; }
+  catch (e) { cacheApi = false; }
+  return cacheApi;
+}
+const memCache = new Map();  // Cache Storage 不可用时的内存兜底
 
-  try {
-    const res = await fetch('/api/tts', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ text }),
-    });
-    if (!res.ok) throw new Error(`TTS API ${res.status}`);
+function cacheKey(text, opts) {
+  return '/tts-cache/' + encodeURIComponent(`${opts.emotion || ''}|${opts.speed || ''}|${text}`);
+}
 
-    const blob      = await res.blob();
-    const url       = URL.createObjectURL(blob);
-    const audio     = new Audio(url);
-    currentAudio    = audio;
-    audio.onended   = () => { URL.revokeObjectURL(url); currentAudio = null; if (onEnd) onEnd(); };
-    audio.onerror   = () => { currentAudio = null; if (onEnd) onEnd(); };
-    await audio.play();
-  } catch (err) {
-    console.error('TTS error:', err);
-    if (onEnd) onEnd();
+// 取一句语音：缓存命中直接返回，否则请求 /api/tts 并写入缓存
+async function ttsBlob(text, opts = {}) {
+  const key = cacheKey(text, opts);
+  if (memCache.has(key)) return memCache.get(key);
+  const cache = await getCache();
+  if (cache) {
+    const hit = await cache.match(key);
+    if (hit) { const b = await hit.blob(); memCache.set(key, b); return b; }
+  }
+  const res = await fetch('/api/tts', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ text, emotion: opts.emotion || undefined, speed: opts.speed || undefined }),
+  });
+  if (!res.ok) {
+    let detail = '';
+    try { detail = (await res.json()).detail || ''; } catch (e) {}
+    throw new Error(`TTS ${res.status} ${detail}`);
+  }
+  const blob = await res.blob();
+  memCache.set(key, blob);
+  if (cache) { try { await cache.put(key, new Response(blob, { headers: { 'Content-Type': 'audio/mpeg' } })); } catch (e) {} }
+  return blob;
+}
+
+// 分句流水线：播第 i 句时并行预取第 i+1 句 → 首句到手即开播
+function speakSentences(sentences, opts = {}) {
+  return new Promise(resolve => {
+    const token   = ++speakToken;
+    const fetches = new Array(sentences.length).fill(null);
+    let warned    = false;
+    const ensure  = i => {
+      if (i < sentences.length && !fetches[i]) {
+        fetches[i] = ttsBlob(sentences[i], opts).catch(err => {
+          console.error('TTS error:', err);
+          if (!warned) { warned = true; toast('语音服务未响应：' + err.message.slice(0, 60)); }
+          return null;
+        });
+      }
+      return fetches[i];
+    };
+    ensure(0);
+    let idx = 0;
+    async function next() {
+      if (token !== speakToken) return resolve(false);      // 被新旅程打断
+      if (idx >= sentences.length) return resolve(true);
+      const blob = await ensure(idx);
+      if (token !== speakToken) return resolve(false);
+      ensure(idx + 1);                                       // 边播边取下一句
+      if (opts.onSentence) opts.onSentence(idx);
+      if (!blob) { idx++; return next(); }
+      const url   = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      currentAudio = audio;
+      const done = () => { URL.revokeObjectURL(url); currentAudio = null; idx++; next(); };
+      audio.onended = done;
+      audio.onerror = done;
+      audio.play().catch(done);
+    }
+    next();
+  });
+}
+function stopSpeaking() {
+  speakToken++;
+  if (currentAudio) { try { currentAudio.pause(); } catch (e) {} currentAudio = null; }
+}
+
+// 逐句点亮文字：已读的亮、未读的暗
+function renderProgress(sentences, uptoIdx) {
+  nt.className = '';
+  nt.innerHTML = sentences.map((s, i) =>
+    `<span class="${i <= uptoIdx ? 'said' : 'unsaid'}">${s}</span>`
+  ).join('');
+}
+
+/* ── 后台预取：intro + 过渡语 + 全部蓝本（顺序请求，避免打爆接口）── */
+async function prefetchAll() {
+  const jobs = [];
+  BLUEPRINTS.forEach(bp => jobs.push({ list: bp.sentences, opts: { emotion: bp.emotion, speed: bp.speed }, bp }));
+  jobs.push({ list: TRANSITION_SENTENCES, opts: {} });
+  for (const job of jobs) {
+    let ok = true;
+    for (const s of job.list) {
+      try { await ttsBlob(s, job.opts); } catch (e) { ok = false; break; }
+    }
+    if (ok && job.bp) {
+      const el = document.querySelector(`[data-bp="${job.bp.id}"]`);
+      if (el) el.classList.add('cached');   // 绿点 = 已缓存可秒开
+    }
   }
 }
 
-/* ── Main Journey ── */
-async function goTo(dest) {
-  if (phase === 'flying' || phase === 'loading') return;
+/* ════════════════════════════════════════
+   旅程流程
+════════════════════════════════════════ */
+
+// 蓝本旅程：文案固定、语音已预取 → 点击即播，零等待
+async function startBlueprint(bp) {
+  if (phase === 'flying') return;
+  stopSpeaking();
   if (recog) { recog.stop(); recog = null; }
   trLine.textContent = '';
 
-  setPhase('flying');
-  stopAudio();
-  playWind();
-  nt.className = '';
-  nt.textContent = `魔毯感受到你的心意，带着你向${dest}飞去……`;
-  sl.textContent = '';
+  stopAmbient();
+  playWhoosh();
+  pickAmbient(bp.ambient);
+  sl.textContent = `· ${bp.title} ·`;
+  setPhase('speaking');
+  renderProgress(bp.sentences, -1);
 
-  // 1. Generate narration
-  setPhase('loading');
-  let narrateText = '';
-  try {
-    const res  = await fetch('/api/narrate', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ destination: dest }),
-    });
-    const data = await res.json();
-    narrateText = data.text || '魔毯在云端轻轻飘荡……';
-  } catch (e) {
-    narrateText = '魔毯在云端轻轻飘荡，带你感受宁静……';
+  lastJourneyText = bp.sentences.join('');
+  const finished = await speakSentences(bp.sentences, {
+    emotion: bp.emotion, speed: bp.speed,
+    onSentence: i => renderProgress(bp.sentences, i),
+  });
+  if (finished) {
+    ctaText.textContent = '想继续深入，还是飞向别处？告诉魔毯……';
+    setPhase('listening');
   }
+}
 
-  // 2. Show text
-  nt.className = 'bright fade-in';
-  nt.textContent = narrateText;
-  sl.textContent = `· 当前目的地：${dest} ·`;
+// 自由目的地：过渡语（已缓存，秒播）掩盖 Claude 生成 + 首句合成的等待
+async function goTo(dest) {
+  if (phase === 'flying') return;
+  stopSpeaking();
+  if (recog) { recog.stop(); recog = null; }
+  trLine.textContent = '';
 
-  // 3. Switch ambient sound
-  stopAudio();
+  stopAmbient();
+  playWhoosh();
+  playWind();
+  sl.textContent = '';
+  nt.className = '';
+  nt.textContent = `魔毯感受到你的心意，带着你向「${dest}」飞去……`;
+  setPhase('speaking');
+
+  // 并行：播过渡语 ‖ 请求旁白文字
+  const narratePromise = fetch('/api/narrate', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ destination: dest, context: lastJourneyText || undefined }),
+  }).then(r => r.json()).catch(() => null);
+
+  await speakSentences(TRANSITION_SENTENCES, {});
+
+  setPhase('flying');
+  const data = await narratePromise;
+  const text = (data && data.text) || '魔毯在云端轻轻飘荡，带你感受宁静……你想去哪里，再告诉魔毯一次好吗？';
+  if (data && data.error) toast('旁白生成失败：' + (data.detail || data.error));
+
+  const sentences = splitSentences(text);
+  lastJourneyText = text;
+
+  stopAmbient();
   pickAmbient(dest);
+  sl.textContent = `· 当前目的地：${dest} ·`;
+  setPhase('speaking');
+  renderProgress(sentences, -1);
 
-  // 4. Speak with Volcengine TTS
-  await speakWithAPI(narrateText, () => setPhase('listening'));
+  const finished = await speakSentences(sentences, {
+    onSentence: i => renderProgress(sentences, i),
+  });
+  if (finished) {
+    ctaText.textContent = '想继续深入，还是飞向别处？告诉魔毯……';
+    setPhase('listening');
+  }
+}
+
+// 按中文标点分句，过短的合并到下一句，保证每次 TTS 请求不至于太碎
+function splitSentences(text) {
+  const parts = text.replace(/\s+/g, '').split(/(?<=[。！？；])|(?<=…)(?!…)/).filter(Boolean);
+  const out = [];
+  let buf = '';
+  for (const p of parts) {
+    buf += p;
+    if (buf.length >= 8) { out.push(buf); buf = ''; }
+  }
+  if (buf) { if (out.length) out[out.length - 1] += buf; else out.push(buf); }
+  return out;
 }
 
 /* ── Voice Input ── */
 function startVoice() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { alert('请在 Chrome 浏览器中使用语音功能'); return; }
+  if (!SR) { toast('当前浏览器不支持语音输入，请使用 Chrome / Edge'); return; }
   if (recog) { recog.stop(); return; }
 
+  stopSpeaking();
   recog = new SR();
-  recog.lang            = 'zh-CN';
-  recog.continuous      = false;
-  recog.interimResults  = true;
+  recog.lang           = 'zh-CN';
+  recog.continuous     = false;
+  recog.interimResults = true;
 
   recog.onstart = () => {
     micBtn.classList.add('on');
@@ -401,7 +683,7 @@ function startVoice() {
   };
   recog.onresult = e => {
     const t = Array.from(e.results).map(r => r[0].transcript).join('');
-    trLine.textContent = `"${t}"`;
+    trLine.textContent = `“${t}”`;
     if (e.results[0].isFinal) { recog = null; resetMic(); trLine.textContent = ''; goTo(t); }
   };
   recog.onerror = recog.onend = () => { recog = null; resetMic(); };
@@ -414,15 +696,32 @@ function resetMic() {
 }
 micBtn.addEventListener('click', startVoice);
 
-/* ── Intro ── */
-const introText = '欢迎登上魔毯……请慢慢闭上眼睛，深呼吸，让自己完全放松……你坐在一块柔软温暖的金色魔毯上，它轻轻飘浮在云端，微风轻抚你的面颊，天空湛蓝而深远……魔毯在等待你的心意——你想飞向哪里？';
+/* ── 渲染蓝本卡片 ── */
+const bpGrid = document.getElementById('bp-grid');
+BLUEPRINTS.forEach(bp => {
+  const card = document.createElement('div');
+  card.className = 'bp-card';
+  card.dataset.bp = bp.id;
+  card.innerHTML = `<div class="bp-ready"></div><div class="bp-emoji">${bp.emoji}</div><div class="bp-title">${bp.title}</div><div class="bp-sub">${bp.sub}</div>`;
+  card.onclick = () => startBlueprint(bp);
+  bpGrid.appendChild(card);
+});
 
-nt.className    = 'bright';
-nt.textContent  = introText;
+/* ── 入口：用户手势解锁音频 → 播开场白，同时后台预取全部蓝本语音 ── */
+document.getElementById('start-btn').addEventListener('click', async () => {
+  document.getElementById('start-overlay').classList.add('hide');
+  getAC().resume && getAC().resume();
 
-setTimeout(async () => {
-  await speakWithAPI(introText, () => setPhase('listening'));
-}, 1000);
+  prefetchAll();   // 后台静默预取，不阻塞开场
+
+  setPhase('speaking');
+  renderProgress(INTRO_SENTENCES, -1);
+  const finished = await speakSentences(INTRO_SENTENCES, {
+    onSentence: i => renderProgress(INTRO_SENTENCES, i),
+  });
+  if (finished) setPhase('listening');
+});
 </script>
+<!-- v2: blueprints + sentence-pipeline TTS -->
 </body>
 </html>

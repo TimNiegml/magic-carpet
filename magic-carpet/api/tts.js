@@ -1,126 +1,83 @@
-// api/tts.js — 火山引擎 豆包语音合成 V3
-// 尝试多种鉴权方式
+// api/tts.js — 火山引擎 TTS 代理
+// 接收 { text, emotion?, speed? }，返回 MP3 音频流
+// emotion 需音色支持多情感（bigtts 系列部分支持）；不支持时自动降级重试
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { text } = req.body;
+  const { text, emotion, speed } = req.body;
   if (!text) return res.status(400).json({ error: 'text is required' });
 
-  const appid  = process.env.VOLC_APPID;
-  const apiKey = process.env.VOLC_ACCESS_TOKEN;
-  const voice  = process.env.VOLC_VOICE || 'zh_female_wanqudashu_moon_bigtts';
+  const appid = process.env.VOLC_APPID;
+  const token = process.env.VOLC_ACCESS_TOKEN;
+  const voice = process.env.VOLC_VOICE || 'zh_female_cancan_mars_bigtts';
 
-  if (!apiKey) {
-    return res.status(500).json({ error: 'Missing VOLC_ACCESS_TOKEN' });
+  if (!appid || !token) {
+    return res.status(500).json({ error: 'Missing VOLC_APPID or VOLC_ACCESS_TOKEN' });
   }
 
-  const ttsUrl = 'https://openspeech.bytedance.com/api/v3/tts/unidirectional';
-  const ttsBody = JSON.stringify({
-    user: { uid: 'magic-carpet' },
-    req_params: {
-      text: text,
-      speaker: voice,
-      audio_params: { format: 'mp3', sample_rate: 24000 },
-      speed_ratio: 0.88,
-    },
-  });
-
-  // 尝试多种鉴权方式
-  const authStrategies = [
-    {
-      name: 'bearer-space',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
-    },
-    {
-      name: 'bearer-semicolon',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer; ' + apiKey },
-    },
-    {
-      name: 'x-api-no-appid',
-      headers: { 'Content-Type': 'application/json', 'X-Api-Access-Key': apiKey, 'X-Api-Resource-Id': 'volc.service_type.10029' },
-    },
-    {
-      name: 'x-api-with-appid',
-      headers: { 'Content-Type': 'application/json', 'X-Api-App-Id': appid, 'X-Api-Access-Key': apiKey, 'X-Api-Resource-Id': 'volc.service_type.10029' },
-    },
-  ];
-
-  // 策略5: 先获取临时 JWT Token，再调用 TTS
-  if (appid) {
-    try {
-      console.log('Trying: get JWT token first');
-      const tokenResp = await fetch('https://openspeech.bytedance.com/api/v1/sts/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer; ' + apiKey },
-        body: JSON.stringify({ appid: appid, duration: 300 }),
-      });
-      const tokenData = await tokenResp.json();
-      console.log('JWT token response: ' + JSON.stringify(tokenData).substring(0, 200));
-      if (tokenData.jwt_token) {
-        authStrategies.push({
-          name: 'jwt-token',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer; ' + tokenData.jwt_token },
-        });
-        authStrategies.push({
-          name: 'jwt-x-api',
-          headers: { 'Content-Type': 'application/json', 'X-Api-App-Id': appid, 'X-Api-Access-Key': tokenData.jwt_token, 'X-Api-Resource-Id': 'volc.service_type.10029' },
-        });
-      }
-    } catch (e) {
-      console.log('JWT token fetch failed: ' + e.message);
+  async function synth(withEmotion) {
+    const audio = {
+      voice_type:   voice,
+      encoding:     'mp3',
+      rate:         24000,
+      speed_ratio:  typeof speed === 'number' ? speed : 0.9,
+      volume_ratio: 1.0,
+      pitch_ratio:  1.0,
+    };
+    if (withEmotion && emotion) {
+      audio.emotion        = emotion;
+      audio.enable_emotion = true;
     }
+    const response = await fetch('https://openspeech.bytedance.com/api/v1/tts', {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        // v1 接口的鉴权格式就是 "Bearer;token"（分号）
+        'Authorization': `Bearer;${token}`,
+      },
+      body: JSON.stringify({
+        app:  { appid, token, cluster: 'volcano_tts' },
+        user: { uid: 'magic-carpet-user' },
+        audio,
+        request: {
+          reqid:     `mc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text,
+          text_type: 'plain',
+          operation: 'query',
+        },
+      }),
+    });
+    return response.json();
   }
 
-  let lastError = null;
+  try {
+    let data = await synth(true);
 
-  for (const strategy of authStrategies) {
-    try {
-      console.log('Trying auth: ' + strategy.name);
-      const resp = await fetch(ttsUrl, {
-        method: 'POST',
-        headers: strategy.headers,
-        body: ttsBody,
-      });
-
-      const rawText = await resp.text();
-      const lines = rawText.trim().split('\n').filter(Boolean);
-      const audioChunks = [];
-
-      for (const line of lines) {
-        try {
-          const p = JSON.parse(line);
-          if (p.data) audioChunks.push(Buffer.from(p.data, 'base64'));
-        } catch (e) {}
-      }
-
-      if (audioChunks.length === 0) {
-        try {
-          const s = JSON.parse(rawText);
-          if (s.data) audioChunks.push(Buffer.from(s.data, 'base64'));
-        } catch (e) {}
-      }
-
-      if (audioChunks.length > 0) {
-        const buf = Buffer.concat(audioChunks);
-        if (buf.length > 100) {
-          console.log('TTS SUCCESS! auth=' + strategy.name + ' size=' + buf.length);
-          res.setHeader('Content-Type', 'audio/mpeg');
-          res.setHeader('Content-Length', buf.length);
-          return res.send(buf);
-        }
-      }
-
-      lastError = { auth: strategy.name, raw: rawText.substring(0, 250) };
-      console.log('Auth ' + strategy.name + ' failed: ' + rawText.substring(0, 250));
-    } catch (err) {
-      lastError = { auth: strategy.name, err: err.message };
-      console.log('Auth ' + strategy.name + ' exception: ' + err.message);
+    // 若带情感参数失败，降级为不带情感重试一次
+    if ((data.code !== 3000 || !data.data) && emotion) {
+      console.warn('TTS with emotion failed, retrying without:', data.code, data.message);
+      data = await synth(false);
     }
-  }
 
-  console.error('ALL auth strategies failed');
-  res.status(502).json({ error: 'All auth failed', lastError });
+    if (data.code !== 3000 || !data.data) {
+      console.error('Volcengine TTS error:', data);
+      return res.status(502).json({
+        error:  'TTS service error',
+        code:   data.code,
+        detail: data.message || 'unknown',
+      });
+    }
+
+    const audioBuffer = Buffer.from(data.data, 'base64');
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Content-Length', audioBuffer.length);
+    res.send(audioBuffer);
+
+  } catch (err) {
+    console.error('TTS handler error:', err);
+    res.status(500).json({ error: 'Internal error', detail: err.message });
+  }
 }
