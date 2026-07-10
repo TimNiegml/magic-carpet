@@ -368,6 +368,7 @@ window.addEventListener('resize', resizeCanvas);
 let audioCtx    = null;
 let activeNodes = [];
 let ambMaster   = null;
+let ambLevel    = 0;
 
 function getAC() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -387,6 +388,7 @@ function ambientBus(level, fadeSec) {
   bus.gain.linearRampToValueAtTime(level, ac.currentTime + fadeSec);
   bus.connect(ac.destination);
   ambMaster = bus;
+  ambLevel  = level;
   return bus;
 }
 // 淡出后再停振荡器，避免瞬间掐断产生的咔哒/吱吱声
@@ -407,6 +409,16 @@ function stopAmbient() {
     nodes.forEach(n => { try { n.stop(); } catch (e) {} });
     if (bus) { try { bus.disconnect(); } catch (e) {} }
   }, 1000);
+}
+// 识别语音时压低环境音（喇叭声会漏进手机麦克风，导致识别刚启动就被判定结束）
+function duckAmbient(on) {
+  if (!ambMaster) return;
+  const ac = getAC();
+  try {
+    ambMaster.gain.cancelScheduledValues(ac.currentTime);
+    ambMaster.gain.setValueAtTime(Math.max(ambMaster.gain.value, 0.0001), ac.currentTime);
+    ambMaster.gain.linearRampToValueAtTime(on ? 0.015 : (ambLevel || 0.12), ac.currentTime + 0.4);
+  } catch (e) {}
 }
 // 和弦铺底：每个音 = 双正弦微失谐（温暖感）+ 极慢 LFO 呼吸起伏
 function pad(bus, freqs, lvl) {
@@ -665,7 +677,7 @@ async function prefetchAll() {
 async function startBlueprint(bp) {
   if (phase === 'flying') return;
   stopSpeaking();
-  if (recog) { recog.stop(); recog = null; }
+  stopVoice();
   trLine.textContent = '';
 
   stopAmbient();
@@ -690,7 +702,7 @@ async function startBlueprint(bp) {
 async function goTo(dest) {
   if (phase === 'flying') return;
   stopSpeaking();
-  if (recog) { recog.stop(); recog = null; }
+  stopVoice();
   trLine.textContent = '';
 
   stopAmbient();
@@ -747,16 +759,28 @@ function splitSentences(text) {
   return out;
 }
 
-/* ── Voice Input ── */
+/* ── Voice Input ──
+   手机端适配：continuous 模式 + 意外结束自动重启（安卓上系统常在短暂静音后秒停）；
+   识别期间压低环境音，防止喇叭声漏进麦克风 */
+let recogActive  = false;
+let recogRestart = 0;
+let voiceTimer   = null;
+
 function startVoice() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { toast('当前浏览器不支持语音输入，请使用 Chrome / Edge'); return; }
-  if (recog) { recog.stop(); return; }
+  if (recogActive) { stopVoice(); return; }   // 再点一次 = 取消
 
   stopSpeaking();
+  duckAmbient(true);
+  recogActive  = true;
+  recogRestart = 0;
+  clearTimeout(voiceTimer);
+  voiceTimer = setTimeout(stopVoice, 15000);  // 最长听 15 秒
+
   recog = new SR();
   recog.lang           = 'zh-CN';
-  recog.continuous     = false;
+  recog.continuous     = true;    // false 在手机上会于短暂静音后立即结束
   recog.interimResults = true;
 
   recog.onstart = () => {
@@ -765,12 +789,44 @@ function startVoice() {
     micBtn.querySelector('svg').innerHTML = '<rect x="3" y="3" width="18" height="18" rx="3"/>';
   };
   recog.onresult = e => {
-    const t = Array.from(e.results).map(r => r[0].transcript).join('');
-    trLine.textContent = `“${t}”`;
-    if (e.results[0].isFinal) { recog = null; resetMic(); trLine.textContent = ''; goTo(t); }
+    let finalText = '', interim = '';
+    for (const r of e.results) {
+      if (r.isFinal) finalText += r[0].transcript;
+      else           interim   += r[0].transcript;
+    }
+    trLine.textContent = `“${finalText || interim}”`;
+    if (finalText.trim()) {
+      const t = finalText.trim();
+      stopVoice();
+      trLine.textContent = '';
+      goTo(t);
+    }
   };
-  recog.onerror = recog.onend = () => { recog = null; resetMic(); };
-  recog.start();
+  recog.onerror = e => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      toast('请在浏览器设置中允许使用麦克风');
+      stopVoice();
+    }
+    // no-speech / aborted 等交给 onend 自动重启
+  };
+  recog.onend = () => {
+    if (!recogActive) return;
+    if (recogRestart < 6) {       // 静默重启续听
+      recogRestart++;
+      try { recog.start(); }
+      catch (err) { setTimeout(() => { try { recog.start(); } catch (e2) { stopVoice(); } }, 200); }
+    } else {
+      stopVoice();
+    }
+  };
+  try { recog.start(); } catch (e) { stopVoice(); }
+}
+function stopVoice() {
+  recogActive = false;
+  clearTimeout(voiceTimer);
+  if (recog) { const r = recog; recog = null; r.onend = null; r.onresult = null; try { r.stop(); } catch (e) {} }
+  resetMic();
+  duckAmbient(false);
 }
 function resetMic() {
   micBtn.classList.remove('on');
@@ -806,6 +862,6 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   if (finished) setPhase('listening');
 });
 </script>
-<!-- v3: meditation-pad ambient + fade-in/out TTS + inter-sentence pauses -->
+<!-- v4: mobile voice-input fix (continuous+auto-restart, ambient ducking) -->
 </body>
 </html>
