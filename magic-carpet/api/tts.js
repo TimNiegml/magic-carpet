@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { text, emotion, speed } = req.body;
+  const { text, emotion, speed, voice } = req.body;
   if (!text) return res.status(400).json({ error: 'text is required' });
 
   const appid = process.env.VOLC_APPID;
@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Missing VOLC_APPID or VOLC_ACCESS_TOKEN' });
   }
 
-  const voiceV3   = process.env.VOLC_VOICE_V3 || 'zh_female_wanwanxiaohe_moon_bigtts';
+  const voiceV3   = voice || process.env.VOLC_VOICE_V3 || 'zh_female_wanwanxiaohe_moon_bigtts';
   const resourceId = process.env.VOLC_TTS_RESOURCE || 'volc.service_type.10029';
   const voiceV1   = process.env.VOLC_VOICE || 'zh_female_cancan_mars_bigtts';
   const speedRatio = typeof speed === 'number' ? speed : 0.9;

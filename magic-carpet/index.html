@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>魔毯之旅 · Hoffman 冥想</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0c0b09">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="魔毯之旅">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -178,6 +184,24 @@ html,body{height:100%;background:#0c0b09}
   display:flex;justify-content:space-between
 }
 .set-row input[type=range]{width:100%;accent-color:#c9a84c;height:3px}
+.voice-list{display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto}
+.voice-item{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:8px 12px;border-radius:10px;cursor:pointer;
+  border:0.5px solid rgba(154,128,72,0.25);background:rgba(154,128,72,0.05);
+  transition:all 0.2s
+}
+.voice-item:hover{background:rgba(154,128,72,0.15)}
+.voice-item.sel{border-color:#c9a84c;background:rgba(201,168,76,0.15)}
+.voice-name{font-size:12px;color:#c9a84c;letter-spacing:1px}
+.voice-desc{font-size:9px;color:#6a5228;font-family:sans-serif;margin-top:2px}
+.voice-try{
+  flex-shrink:0;font-size:10px;color:#9a8048;font-family:sans-serif;letter-spacing:1px;
+  border:0.5px solid rgba(154,128,72,0.4);border-radius:12px;padding:4px 10px;cursor:pointer
+}
+.voice-try:hover{color:#c9a84c;border-color:#c9a84c}
+.set-toggle{display:flex;align-items:center;justify-content:space-between}
+.set-toggle input{accent-color:#c9a84c;width:16px;height:16px;cursor:pointer}
 
 /* ── Toast（错误提示）── */
 #toast{
@@ -293,6 +317,14 @@ html,body{height:100%;background:#0c0b09}
   <div class="set-row">
     <div class="set-label"><span>旁白人声</span><span id="vol-voice-val">100%</span></div>
     <input type="range" id="vol-voice" min="0" max="100" value="100">
+  </div>
+  <div class="set-row set-toggle">
+    <div class="set-label"><span>自动聆听（说完旁白自动开麦）</span></div>
+    <input type="checkbox" id="auto-listen-toggle" checked>
+  </div>
+  <div class="set-row">
+    <div class="set-label"><span>旁白音色（点击选定 · 试听需已开通大模型语音）</span></div>
+    <div class="voice-list" id="voice-list"></div>
   </div>
 </div>
 
@@ -515,28 +547,76 @@ function airNoise(bus, cutoff, lvl, lfoRate) {
   src.connect(f); f.connect(g); g.connect(bus);
   src.start(); activeNodes.push(src);
 }
-// 天空/高原：A 大调五声铺底 + 轻气息
+// 拨弦音（竖琴/古筝质感）：三角波 + 快起音长衰减
+function pluck(bus, freq, vol) {
+  const ac = getAC();
+  const o = ac.createOscillator(); o.type = 'triangle'; o.frequency.value = freq;
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, ac.currentTime);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), ac.currentTime + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 2.4);
+  o.connect(g); g.connect(bus);
+  o.start(); o.stop(ac.currentTime + 2.5);
+}
+// 琶音器：随机间隔轻拨音阶里的音，古典轻盈感；场景切换自动停止
+function arp(bus, notes, minGap, maxGap, vol) {
+  const tick = () => {
+    if (ambMaster !== bus) return;
+    const n = notes[Math.floor(Math.random() * notes.length)];
+    pluck(bus, n, vol);
+    if (Math.random() < 0.3) setTimeout(() => { if (ambMaster === bus) pluck(bus, n * 2, vol * 0.45); }, 200);
+    setTimeout(tick, minGap + Math.random() * (maxGap - minGap));
+  };
+  setTimeout(tick, 1200);
+}
+// 水流咕噜声：带通噪声 + 双 LFO（快速水泡感 + 缓慢流向变化）
+function burble(bus, lvl) {
+  const ac  = getAC();
+  const src = ac.createBufferSource(); src.buffer = mkNoise(ac, 6); src.loop = true;
+  const f   = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1100; f.Q.value = 1.6;
+  const g   = ac.createGain(); g.gain.value = lvl;
+  const l1  = ac.createOscillator(); l1.frequency.value = 1.7;
+  const lg1 = ac.createGain(); lg1.gain.value = lvl * 0.55;
+  l1.connect(lg1); lg1.connect(g.gain);
+  const l2  = ac.createOscillator(); l2.frequency.value = 0.31;
+  const lg2 = ac.createGain(); lg2.gain.value = 350;
+  l2.connect(lg2); lg2.connect(f.frequency);
+  src.connect(f); f.connect(g); g.connect(bus);
+  src.start(); l1.start(); l2.start(); activeNodes.push(src, l1, l2);
+}
+// 天空/御风：风声 + 明亮五声琶音（轻盈）
 function playWind() {
   const bus = ambientBus(0.16, 3);
-  pad(bus, [110, 164.8, 220, 329.6], 0.16);
-  airNoise(bus, 240, 0.10, 0.05);
+  pad(bus, [110, 164.8, 220, 329.6], 0.09);
+  airNoise(bus, 240, 0.11, 0.05);
+  arp(bus, [440, 493.9, 554.4, 659.3, 740], 2200, 5000, 0.12);
 }
-// 海洋：低音涌动 + 缓慢波浪起伏
+// 海洋：浪的涌动 + 低音偶尔轻拨
 function playOcean() {
   const bus = ambientBus(0.16, 3.5);
-  pad(bus, [82.4, 123.5, 164.8, 246.9], 0.17);
-  airNoise(bus, 140, 0.16, 0.07);
+  pad(bus, [82.4, 123.5, 164.8, 246.9], 0.11);
+  airNoise(bus, 140, 0.17, 0.07);
+  arp(bus, [220, 246.9, 293.7, 329.6], 3500, 7000, 0.08);
 }
-// 星空：清冷高音微光
+// 星空：清冷微光 + 极稀疏的高音星子
 function playSpace() {
   const bus = ambientBus(0.11, 4);
-  pad(bus, [130.8, 196, 261.6, 392, 523.3], 0.12);
+  pad(bus, [130.8, 196, 261.6, 392, 523.3], 0.09);
+  arp(bus, [1046.5, 1174.7, 1318.5, 1568], 4000, 8500, 0.05);
 }
-// 沙漠：低沉空旷的小调 drone + 干热的风
+// 溪流/泉水：潺潺水声 + 高音轻拨
+function playStream() {
+  const bus = ambientBus(0.16, 2.5);
+  pad(bus, [146.8, 220, 293.7], 0.07);
+  burble(bus, 0.10);
+  arp(bus, [587.3, 659.3, 784, 880], 2800, 6000, 0.09);
+}
+// 沙漠：空旷的风 + 稀疏驼铃般的轻拨
 function playDesert() {
   const bus = ambientBus(0.15, 3);
-  pad(bus, [73.4, 110, 146.8, 220], 0.16);
-  airNoise(bus, 420, 0.09, 0.04);
+  pad(bus, [73.4, 110, 146.8, 220], 0.09);
+  airNoise(bus, 420, 0.10, 0.04);
+  arp(bus, [293.7, 349.2, 440, 523.3], 3000, 6500, 0.09);
 }
 // 打斗/紧张：小二度摩擦音 + 心跳般的低鼓
 function playBattle() {
@@ -562,8 +642,9 @@ function playBattle() {
 function pickAmbient(key) {
   if (key === 'battle' || /打斗|战斗|激战|妖|魔王|决斗|追逐|风暴|雷电|龙卷|危机|紧张/.test(key)) playBattle();
   else if (key === 'desert' || /沙漠|大漠|戈壁|绿洲|驼铃|撒哈拉|敦煌/.test(key)) playDesert();
+  else if (key === 'stream' || /溪|泉|流水|瀑布|河|涧/.test(key)) playStream();
   else if (key === 'space' || /月|太空|星|天宫|仙|宇宙|广寒|嫦|空间站|土星|银河/.test(key)) playSpace();
-  else if (key === 'sea' || key === 'ocean' || /海|水|龙宫|深|鲸|珊瑚|潜/.test(key)) playOcean();
+  else if (key === 'sea' || key === 'ocean' || /海|龙宫|深潜|鲸|珊瑚/.test(key)) playOcean();
   else playWind();
 }
 // 起飞"呼——"过渡音效（柔化版）：低通扫频，音量克制
@@ -654,6 +735,77 @@ volVoiceEl.addEventListener('input', () => {
   try { localStorage.setItem('mc-vol-voice', String(voiceVol)); } catch (e) {}
 });
 
+/* ── 自动聆听开关 ── */
+let autoListen = true;
+try { autoListen = localStorage.getItem('mc-auto-listen') !== '0'; } catch (e) {}
+const autoToggle = document.getElementById('auto-listen-toggle');
+autoToggle.checked = autoListen;
+autoToggle.addEventListener('change', () => {
+  autoListen = autoToggle.checked;
+  try { localStorage.setItem('mc-auto-listen', autoListen ? '1' : '0'); } catch (e) {}
+});
+// 旁白结束后自动开麦（VAD 说完自动结束），无需点击麦克风
+function maybeAutoListen() {
+  if (!autoListen) return;
+  setTimeout(() => {
+    if (phase === 'listening' && !recording && !recogActive) micClick();
+  }, 900);
+}
+
+/* ── 音色选择：点击选定，试听播放示范 ── */
+const VOICES = [
+  { id: '',                                           name: '默认（湾湾小何）', desc: '温柔软糯 · 讲故事首选' },
+  { id: 'zh_female_wanwanxiaohe_moon_bigtts',         name: '湾湾小何',        desc: '温柔软糯 · 台湾腔' },
+  { id: 'zh_female_roumeinvyou_emo_v2_mars_bigtts',   name: '柔美女友',        desc: '轻柔细腻 · 多情感' },
+  { id: 'zh_female_shuangkuaisisi_emo_v2_mars_bigtts',name: '爽快思思',        desc: '清亮自然 · 多情感' },
+  { id: 'zh_male_shaonianzixin_moon_bigtts',          name: '少年梓辛',        desc: '清朗少年音' },
+  { id: 'zh_male_beijingxiaoye_emo_v2_mars_bigtts',   name: '北京小爷',        desc: '沉稳男声 · 多情感' },
+  { id: 'zh_female_cancan_mars_bigtts',               name: '灿灿',            desc: '温柔知性（经典）' },
+];
+let chosenVoice = '';
+try { chosenVoice = localStorage.getItem('mc-voice') || ''; } catch (e) {}
+const VOICE_DEMO = '欢迎登上魔毯……让我们开始一段安静的旅程。';
+
+const voiceListEl = document.getElementById('voice-list');
+function renderVoices() {
+  voiceListEl.innerHTML = '';
+  VOICES.forEach(v => {
+    const row = document.createElement('div');
+    row.className = 'voice-item' + (v.id === chosenVoice ? ' sel' : '');
+    row.innerHTML = `<div><div class="voice-name">${v.name}</div><div class="voice-desc">${v.desc}</div></div>`;
+    const tryBtn = document.createElement('div');
+    tryBtn.className = 'voice-try';
+    tryBtn.textContent = '试听';
+    tryBtn.onclick = async ev => {
+      ev.stopPropagation();
+      stopSpeaking();
+      tryBtn.textContent = '…';
+      const saved = chosenVoice;
+      chosenVoice = v.id;                    // 临时切换以命中该音色的缓存键
+      try {
+        const blob = await ttsBlob(VOICE_DEMO, {});
+        chosenVoice = saved;
+        speakToken++;                        // 独立播放，不进流水线
+        await playBlob(blob);
+      } catch (e) {
+        chosenVoice = saved;
+        toast('试听失败：' + e.message.slice(0, 60));
+      }
+      tryBtn.textContent = '试听';
+    };
+    row.appendChild(tryBtn);
+    row.onclick = () => {
+      chosenVoice = v.id;
+      try { localStorage.setItem('mc-voice', chosenVoice); } catch (e) {}
+      renderVoices();
+      toast(`音色已切换：${v.name}`);
+      prefetchAll();                         // 用新音色重新预取蓝本
+    };
+    voiceListEl.appendChild(row);
+  });
+}
+renderVoices();
+
 /* ════════════════════════════════════════
    TTS：Cache Storage 缓存 + 分句流水线
    每句 WebAudio 播放（50ms 淡入 / 80ms 淡出，无爆音）
@@ -670,7 +822,7 @@ async function getCache() {
 const memCache = new Map();  // Cache Storage 不可用时的内存兜底
 
 function cacheKey(text, opts) {
-  return '/tts-cache/' + encodeURIComponent(`${opts.emotion || ''}|${opts.speed || ''}|${text}`);
+  return '/tts-cache/' + encodeURIComponent(`${chosenVoice}|${opts.emotion || ''}|${opts.speed || ''}|${text}`);
 }
 
 // 取一句语音：缓存命中直接返回，否则请求 /api/tts 并写入缓存
@@ -685,7 +837,7 @@ async function ttsBlob(text, opts = {}) {
   const res = await fetch('/api/tts', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ text, emotion: opts.emotion || undefined, speed: opts.speed || undefined }),
+    body:    JSON.stringify({ text, emotion: opts.emotion || undefined, speed: opts.speed || undefined, voice: chosenVoice || undefined }),
   });
   if (!res.ok) {
     let detail = '';
@@ -828,8 +980,9 @@ async function startBlueprint(bp) {
   });
   if (finished) {
     showChoices(bp.choices);
-    ctaText.textContent = '点一个走向，或告诉魔毯你的想法……';
+    ctaText.textContent = '直接开口说，或点一个走向……';
     setPhase('listening');
+    maybeAutoListen();
   }
 }
 
@@ -878,8 +1031,9 @@ async function goTo(dest) {
   });
   if (finished) {
     showChoices(data && data.choices);
-    ctaText.textContent = '点一个走向，或告诉魔毯你的想法……';
+    ctaText.textContent = '直接开口说，或点一个走向……';
     setPhase('listening');
+    maybeAutoListen();
   }
 }
 
@@ -1158,9 +1312,9 @@ document.getElementById('start-btn').addEventListener('click', async () => {
     pauseMs: 800,
     onSentence: i => renderProgress(INTRO_SENTENCES, i),
   });
-  if (finished) setPhase('listening');
+  if (finished) { setPhase('listening'); maybeAutoListen(); }
 });
 </script>
-<!-- v6: VAD auto-stop recording + desert/battle ambient + volume settings + story choices -->
+<!-- v7: voice picker + auto-listen + lighter classical ambient (pluck/arp/stream) + PWA -->
 </body>
 </html>

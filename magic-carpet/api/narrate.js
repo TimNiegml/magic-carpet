@@ -37,7 +37,7 @@ export default async function handler(req, res) {
           content: `你是一位极致温柔的冥想引导师，带领听众乘坐神奇魔毯旅行。魔毯正飞向"${destination}"。${contextBlock}
 
 请严格按以下三行格式输出（不要输出任何其他内容）：
-MOOD: 从 sky/sea/space/desert/battle/calm 中选一个最贴合本段氛围的词（海洋水下选sea；太空月宫仙境星河选space；沙漠戈壁选desert；紧张冒险打斗风暴选battle；高空飞行云端选sky；其余选calm）
+MOOD: 从 sky/sea/space/desert/battle/stream/calm 中选一个最贴合本段氛围的词（海洋水下选sea；太空月宫仙境星河选space；沙漠戈壁选desert；紧张冒险打斗风暴选battle；高空飞行云端选sky；溪流泉水瀑布选stream；其余选calm）
 TEXT: 一段90-130字的沉浸式中文冥想旁白。要求：第一句必须少于15字（如"风，托起了魔毯。"）；语调极度温柔缓慢如呢喃；先用15-25字描绘移动体感（风、云、水流、失重、速度）；再用70-90字描写到达${destination}的感官细节（看到的颜色光线、听到的声音、闻到的气息、皮肤的温度触感）；如有神话人物（嫦娥、孙悟空、龙王等）、科幻元素或著名地标自然融入；结尾一句10-15字以温柔的邀请或提问收束；每句都短，用句号或省略号断句
 CHOICES: 三个后续故事走向，每个6-12字，用｜分隔（例如：跟着鲸鱼去深处｜浮上月光海面｜去珊瑚宫殿做客）`,
         }],
