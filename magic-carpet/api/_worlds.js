@@ -49,7 +49,10 @@ const STORM_LIGHTHOUSE = {
     { id: 'b1_lamp_risk', act: 1, after_turn: 1, involves: ['老周'], cue: '灯室传来异响，老周神色一紧', hint: '老周极力遮掩灯芯问题，可能对你撒一个小谎；也可能露出破绽。' },
     { id: 'b2_boat', act: 2, after_turn: 2, involves: ['阿岚'], cue: '阿岚几次想往门外走', hint: '阿岚在"趁乱离岛"和"良心"之间摇摆；他的抉择取决于是否被看穿、以及你对他的态度。' },
     { id: 'b3_identity', act: 2, after_turn: 3, involves: ['苏晴', '老周'], cue: '苏晴看着老周的手，欲言又止', hint: '苏晴的身份逐渐浮现；她可能点破，也可能临阵退缩。老周或有所察觉。' },
-    { id: 'b4_ship_near', act: 3, after_turn: 5, involves: ['老周', '阿岚', '苏晴'], cue: '船的灯影已能看见，正朝暗礁来', hint: '危机逼到眼前，灯的问题再也瞒不住。每个人的秘密在此刻被迫摊开，必须做出选择。' }
+    { id: 'b2b_ask_help', act: 2, after_turn: 3, involves: ['老周'], cue: '老周迟疑着，最终把目光转向你', hint: '老周开口请你帮个忙、或试探你是否可信；让他直接对你说话、把某样东西交到你手里。' },
+    { id: 'b3b_confide', act: 2, after_turn: 4, involves: ['苏晴'], cue: '苏晴走近你，声音很轻', hint: '苏晴向你吐露一点心事、问你一个问题、或托付你一件事；让她与你直接互动。' },
+    { id: 'b3c_arlan', act: 2, after_turn: 5, involves: ['阿岚'], cue: '阿岚拦住你', hint: '阿岚也许求你替他保守秘密、拉你一起走、或因你的态度而动摇；让他直接面对你。' },
+    { id: 'b4_ship_near', act: 3, after_turn: 5, involves: ['老周', '阿岚', '苏晴'], cue: '船的灯影已能看见，正朝暗礁来', hint: '危机逼到眼前，灯的问题再也瞒不住。每个人的秘密在此刻被迫摊开，都在等你表态、都需要你做点什么。' }
   ],
   convergence: {
     trigger: { act: 3, min_turn: 6 },
@@ -70,7 +73,7 @@ const STORM_LIGHTHOUSE = {
       C_missed: '风暴后死寂的清晨，灯塔黯淡无光，灰白的海面空茫，一种苦涩的留白'
     }
   },
-  act_clock: { acts: 3, target_turns: 15, act2_at: 4, act3_at: 9 },
+  act_clock: { acts: 3, target_turns: 12, act2_at: 3, act3_at: 7 },
   default_params: { surprise: 40, seed: 0, story_level: 80, pace: 15, agency: 60 }
 };
 

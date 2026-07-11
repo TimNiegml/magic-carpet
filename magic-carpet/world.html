@@ -4,72 +4,105 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>潮汐灯塔 · 风暴夜 — 魔毯世界</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Noto+Serif+SC:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
+:root{
+  --bg:#0a0806; --bg2:#171009;
+  --gold:#c9a84c; --gold-b:#e7cb82; --gold-dim:#8a7038;
+  --ink:#ece0c6; --ink-dim:#7d6c4c; --line:rgba(201,168,76,0.22);
+}
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;background:#0c0b09}
-#app{min-height:100vh;background:radial-gradient(1200px 600px at 50% -10%,#141109,#0c0b09);
-  font-family:'Noto Serif SC',Georgia,serif;color:#e8d9b0;
-  display:flex;flex-direction:column;align-items:center;padding:38px 22px 120px;position:relative}
-.eyebrow{font-size:10px;letter-spacing:8px;color:#6a5228;font-family:sans-serif;margin-bottom:10px;text-align:center}
-.title{font-size:1.5rem;font-weight:300;color:#c9a84c;letter-spacing:8px;text-align:center;margin-bottom:6px}
-.logline{font-size:11px;color:#6a5228;font-family:sans-serif;letter-spacing:1px;text-align:center;max-width:560px;margin-bottom:24px;line-height:1.8}
-.stage{display:flex;gap:30px;max-width:1120px;width:100%;align-items:flex-start;justify-content:center}
+html,body{height:100%;background:var(--bg)}
+#vignette{position:fixed;inset:0;pointer-events:none;z-index:1;
+  background:radial-gradient(ellipse 90% 70% at 50% 32%, transparent 46%, rgba(0,0,0,0.5) 100%)}
+#app{position:relative;z-index:2;min-height:100vh;
+  background:radial-gradient(1000px 520px at 50% -8%, #1d1409, var(--bg) 70%);
+  font-family:'Noto Serif SC',Georgia,serif;color:var(--ink);
+  display:flex;flex-direction:column;align-items:center;padding:44px 22px 122px}
+.eyebrow{font-family:'Cinzel',serif;font-size:12px;letter-spacing:11px;color:var(--gold-dim);
+  margin-bottom:14px;text-align:center;text-indent:11px}
+.title{font-size:1.7rem;font-weight:600;color:var(--gold);letter-spacing:9px;text-align:center;
+  text-indent:9px;text-shadow:0 2px 24px rgba(201,168,76,0.25)}
+.divider{display:flex;align-items:center;gap:12px;margin:14px 0 22px;color:var(--gold-dim)}
+.divider .l{width:64px;height:1px;background:linear-gradient(90deg,transparent,var(--gold-dim))}
+.divider .l.r{background:linear-gradient(90deg,var(--gold-dim),transparent)}
+.divider .d{font-size:9px;transform:rotate(45deg);opacity:.8}
+.logline{font-size:11.5px;color:var(--ink-dim);font-family:sans-serif;letter-spacing:1px;
+  text-align:center;max-width:560px;margin-bottom:30px;line-height:1.9}
+.stage{display:flex;gap:34px;max-width:1140px;width:100%;align-items:flex-start;justify-content:center}
 .left{flex:1;min-width:0;max-width:540px;display:flex;flex-direction:column}
 .right{width:480px;flex-shrink:0}
-.imgframe{width:100%;aspect-ratio:1/1;border:0.5px solid rgba(201,168,76,0.28);border-radius:18px;
-  overflow:hidden;position:relative;background:rgba(255,255,255,0.02);box-shadow:0 10px 40px rgba(0,0,0,0.4)}
-#scene-img{width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.1s;display:block}
+.imgframe{width:100%;aspect-ratio:1/1;border-radius:16px;overflow:hidden;position:relative;
+  background:#0d0a07;padding:5px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(201,168,76,0.28), inset 0 0 0 1px rgba(0,0,0,0.6)}
+.imgframe::after{content:'';position:absolute;inset:5px;border-radius:12px;pointer-events:none;
+  box-shadow:inset 0 0 70px rgba(0,0,0,0.55);z-index:2}
+#scene-img{width:100%;height:100%;object-fit:cover;border-radius:12px;opacity:0;transition:opacity 1.2s;display:block}
 #scene-img.show{opacity:1}
-.imgload{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
-  color:#6a5228;font-family:sans-serif;font-size:11px;letter-spacing:5px}
+.imgload{position:absolute;inset:5px;display:none;align-items:center;justify-content:center;border-radius:12px;
+  color:var(--gold-dim);font-family:'Cinzel',serif;font-size:11px;letter-spacing:7px;z-index:3}
 .imgload.on{display:flex;animation:blink 1.6s infinite}
-.imgcap{margin-top:9px;text-align:center;font-size:9px;letter-spacing:2px;color:#5a4a28;font-family:sans-serif}
-.narration{width:100%;border:0.5px solid rgba(201,168,76,0.2);border-radius:16px;
-  padding:28px 30px;line-height:2.1;font-size:1.05rem;font-weight:300;min-height:150px;
-  background:rgba(255,255,255,0.018);margin-bottom:20px;transition:opacity .5s;white-space:pre-wrap}
-.choices{display:flex;flex-direction:column;gap:10px;width:100%}
-.choice{border:0.5px solid rgba(154,128,72,0.32);background:rgba(154,128,72,0.06);color:#e8d9b0;
-  border-radius:12px;padding:14px 18px;cursor:pointer;font-family:'Noto Serif SC',serif;font-size:15px;
-  letter-spacing:1px;text-align:left;transition:all .2s;position:relative}
-.choice:hover{background:rgba(154,128,72,0.18);border-color:#c9a84c}
-.choice .rdy{position:absolute;top:50%;right:12px;transform:translateY(-50%);width:5px;height:5px;border-radius:50%;background:#4a7c4a;opacity:0;transition:opacity .4s}
-.choice.ready .rdy{opacity:.85}
-.type-row{display:flex;gap:8px;width:100%;margin-top:12px}
-.type-row input{flex:1;background:rgba(154,128,72,0.06);border:0.5px solid rgba(154,128,72,0.3);
-  border-radius:12px;color:#e8d9b0;font-family:'Noto Serif SC',serif;font-size:14px;padding:12px 14px;outline:none}
-.type-row button{background:rgba(154,128,72,0.15);border:0.5px solid #9a8048;color:#c9a84c;border-radius:12px;
-  padding:0 20px;cursor:pointer;font-family:'Noto Serif SC',serif;letter-spacing:2px}
-.ending{text-align:center;color:#c9a84c;letter-spacing:6px;font-size:1.1rem;margin:20px 0}
-#overlay{position:fixed;inset:0;z-index:50;background:rgba(12,11,9,0.94);display:flex;
-  flex-direction:column;align-items:center;justify-content:center;gap:22px;transition:opacity .8s}
+.imgcap{margin-top:11px;text-align:center;font-family:'Cinzel',serif;font-size:9px;letter-spacing:4px;color:var(--ink-dim)}
+.narration{width:100%;border:1px solid var(--line);border-top:1px solid rgba(201,168,76,0.4);
+  border-radius:14px;padding:30px 32px;line-height:2.18;font-size:1.12rem;font-weight:300;min-height:158px;
+  background:linear-gradient(180deg,rgba(201,168,76,0.045),rgba(255,255,255,0.012));
+  box-shadow:0 12px 40px rgba(0,0,0,0.35);margin-bottom:22px;transition:opacity .5s;white-space:pre-wrap}
+.narration::first-letter{font-size:1.5em;color:var(--gold-b)}
+.choices{display:flex;flex-direction:column;gap:11px;width:100%}
+.choice{border:1px solid rgba(154,128,72,0.32);border-radius:11px;padding:15px 20px;cursor:pointer;
+  background:linear-gradient(180deg,rgba(154,128,72,0.09),rgba(154,128,72,0.03));color:var(--ink);
+  font-family:'Noto Serif SC',serif;font-size:15px;letter-spacing:1px;text-align:left;position:relative;
+  transition:all .22s;overflow:hidden}
+.choice:hover{border-color:var(--gold);background:linear-gradient(180deg,rgba(201,168,76,0.2),rgba(154,128,72,0.06));
+  transform:translateX(4px);box-shadow:-3px 0 18px rgba(201,168,76,0.12)}
+.choice .rdy{position:absolute;top:50%;right:14px;transform:translateY(-50%);width:6px;height:6px;border-radius:50%;
+  background:#5c9a5c;opacity:0;transition:opacity .4s;box-shadow:0 0 8px #5c9a5c}
+.choice.ready .rdy{opacity:.9}
+.type-row{display:flex;gap:8px;width:100%;margin-top:14px}
+.type-row input{flex:1;background:rgba(154,128,72,0.06);border:1px solid rgba(154,128,72,0.3);
+  border-radius:11px;color:var(--ink);font-family:'Noto Serif SC',serif;font-size:14px;padding:13px 15px;outline:none}
+.type-row button{background:linear-gradient(180deg,rgba(201,168,76,0.22),rgba(154,128,72,0.08));
+  border:1px solid var(--gold-dim);color:var(--gold-b);border-radius:11px;padding:0 22px;cursor:pointer;
+  font-family:'Noto Serif SC',serif;letter-spacing:3px}
+.ending{text-align:center;color:var(--gold-b);letter-spacing:8px;font-size:1.15rem;margin:22px 0;
+  font-family:'Noto Serif SC',serif;text-shadow:0 2px 20px rgba(201,168,76,0.3)}
+#overlay{position:fixed;inset:0;z-index:60;background:radial-gradient(circle at 50% 40%,#141009,#070504);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .9s}
 #overlay.hide{opacity:0;pointer-events:none}
-.start-btn{border:0.5px solid #9a8048;background:rgba(154,128,72,0.1);color:#c9a84c;
-  font-family:'Noto Serif SC',serif;font-size:15px;letter-spacing:6px;padding:16px 44px;border-radius:40px;cursor:pointer}
-.start-btn:hover{background:rgba(154,128,72,0.25)}
-#bar{position:fixed;bottom:0;left:0;right:0;z-index:40;background:rgba(14,12,9,0.92);
-  border-top:0.5px solid rgba(154,128,72,0.25);padding:12px 18px;display:flex;align-items:center;gap:14px;
-  font-family:sans-serif;font-size:11px;color:#9a8048;letter-spacing:1px;flex-wrap:wrap;justify-content:center}
-#bar input[type=range]{accent-color:#c9a84c;width:120px}
-#bar .btn{border:0.5px solid rgba(154,128,72,0.4);border-radius:16px;padding:6px 14px;cursor:pointer;color:#9a8048}
-#bar .btn:hover{color:#c9a84c;border-color:#c9a84c}
+.ov-eyebrow{font-family:'Cinzel',serif;font-size:12px;letter-spacing:10px;color:var(--gold-dim);text-indent:10px}
+.ov-title{font-size:2rem;font-weight:600;color:var(--gold);letter-spacing:12px;text-indent:12px;margin-bottom:14px;
+  text-shadow:0 3px 30px rgba(201,168,76,0.3)}
+.start-btn{border:1px solid var(--gold-dim);background:linear-gradient(180deg,rgba(201,168,76,0.14),rgba(154,128,72,0.04));
+  color:var(--gold-b);font-family:'Noto Serif SC',serif;font-size:15px;letter-spacing:7px;text-indent:7px;
+  padding:17px 46px;border-radius:40px;cursor:pointer;transition:all .3s;animation:pulse 3s ease-in-out infinite}
+.start-btn:hover{background:linear-gradient(180deg,rgba(201,168,76,0.3),rgba(154,128,72,0.1));border-color:var(--gold)}
+.ov-hint{font-family:'Cinzel',serif;font-size:10px;letter-spacing:4px;color:var(--ink-dim);margin-top:6px}
+#bar{position:fixed;bottom:0;left:0;right:0;z-index:40;background:rgba(10,8,6,0.86);backdrop-filter:blur(10px);
+  border-top:1px solid var(--line);padding:13px 18px;display:flex;align-items:center;gap:15px;
+  font-family:sans-serif;font-size:11px;color:var(--gold-dim);letter-spacing:1px;flex-wrap:wrap;justify-content:center}
+#bar input[type=range]{accent-color:var(--gold);width:120px}
+#bar .btn{border:1px solid rgba(154,128,72,0.4);border-radius:16px;padding:6px 15px;cursor:pointer;color:var(--gold-dim);transition:all .2s}
+#bar .btn:hover{color:var(--gold-b);border-color:var(--gold)}
 #bar label{display:flex;align-items:center;gap:5px;cursor:pointer}
-#bar input[type=checkbox]{accent-color:#c9a84c;width:14px;height:14px;cursor:pointer}
-.foot{margin-top:30px;font-size:10px;letter-spacing:1.5px;color:#5a4a28;font-family:sans-serif;text-align:center}
-.thinking{font-size:11px;letter-spacing:4px;color:#6a5228;font-family:sans-serif;text-align:center;margin:0 0 14px;animation:blink 2s infinite}
-@keyframes blink{0%,100%{opacity:.4}50%{opacity:.9}}
+#bar input[type=checkbox]{accent-color:var(--gold);width:14px;height:14px;cursor:pointer}
+.foot{margin-top:36px;font-family:'Cinzel',serif;font-size:9px;letter-spacing:2px;color:#4f4230;text-align:center}
+.thinking{font-family:'Cinzel',serif;font-size:11px;letter-spacing:5px;color:var(--gold-dim);text-align:center;margin:0 0 14px;animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:.35}50%{opacity:.85}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 rgba(201,168,76,0)}50%{box-shadow:0 0 26px rgba(201,168,76,0.22)}}
 @media(max-width:920px){ .stage{flex-direction:column;align-items:center} .right{width:100%;max-width:540px;order:-1} .left{max-width:540px} }
 </style>
 </head>
 <body>
+<div id="vignette"></div>
 <div id="app">
   <div class="eyebrow">HOFFMAN · 魔毯世界</div>
   <div class="title">潮汐灯塔 · 风暴夜</div>
+  <div class="divider"><span class="l"></span><span class="d">◆</span><span class="l r"></span></div>
   <div class="logline">风暴将至的孤岛旧灯塔，一艘船正驶向礁石，而今夜每个人都藏着一件事。你被困在这里，成了今夜的关键。</div>
   <div class="stage">
     <div class="left">
       <div class="narration" id="narration">铺开你的魔毯……</div>
-      <div id="thinking" class="thinking" style="display:none">✦ 世界在低语 ✦</div>
+      <div id="thinking" class="thinking" style="display:none">THE WORLD WHISPERS</div>
       <div class="choices" id="choices"></div>
       <div class="type-row" id="type-row" style="display:none">
         <input id="type-input" placeholder="或者，说出你想做的事…" maxlength="40">
@@ -79,12 +112,12 @@ html,body{height:100%;background:#0c0b09}
     <div class="right">
       <div class="imgframe">
         <img id="scene-img" alt="">
-        <div class="imgload" id="imgload">绘 制 中</div>
+        <div class="imgload" id="imgload">PAINTING</div>
       </div>
-      <div class="imgcap">油画插画 · Seedream</div>
+      <div class="imgcap">OIL PAINTING · SEEDREAM</div>
     </div>
   </div>
-  <div class="foot">创意版权归属「活满」所有 · 贡献人：炜仔 及活满全体工作人员</div>
+  <div class="foot">创意版权归属「活满」所有 · 贡献人 炜仔 及活满全体工作人员</div>
 </div>
 
 <div id="bar">
@@ -99,9 +132,10 @@ html,body{height:100%;background:#0c0b09}
 </div>
 
 <div id="overlay">
-  <div class="eyebrow">潮汐灯塔 · 风暴夜</div>
+  <div class="ov-eyebrow">HOFFMAN · 魔毯世界</div>
+  <div class="ov-title">潮汐灯塔 · 风暴夜</div>
   <button class="start-btn" id="start-btn">轻触魔毯 · 进入这一夜</button>
-  <div style="font-size:10px;letter-spacing:3px;color:#6a5228;font-family:sans-serif">戴上耳机，调暗灯光</div>
+  <div class="ov-hint">PUT ON HEADPHONES · DIM THE LIGHTS</div>
 </div>
 
 <script>
@@ -110,8 +144,8 @@ let state = null, busy = false;
 let seed = Math.floor(Math.random()*1e6);
 let surprise = 40, prefetchOn = true, imgOn = true;
 let pf = new Map();
-const ttsCache = new Map();    // 文本 -> Promise<blob|null>（选项/句子语音预取）
-const imgCache = new Map();    // 提示词 -> Promise<url|null>（下一幕图预取）
+const ttsCache = new Map();
+const imgCache = new Map();
 
 $('surprise').addEventListener('input', e => { surprise = +e.target.value; $('surprise-val').textContent = surprise; if (state) state.params.surprise = surprise; });
 $('prefetch').addEventListener('change', e => { prefetchOn = e.target.checked; if (!prefetchOn) clearPrefetch(); });
@@ -119,7 +153,7 @@ $('imgon').addEventListener('change', e => { imgOn = e.target.checked; });
 function setThinking(on){ $('thinking').style.display = on ? 'block' : 'none'; }
 function showSeed(){ $('seed-label').textContent = '种子 #' + seed; }
 
-// ── 语音：预取 + 分句流水线（首句合成好即播，后面边播边取）──
+// ── 语音：预取 + 分句流水线 + 可取消队列（修复换幕时旁白不发声）──
 function ensureTTS(text){
   if (!text) return Promise.resolve(null);
   if (!ttsCache.has(text)) ttsCache.set(text,
@@ -129,24 +163,42 @@ function ensureTTS(text){
 }
 function splitSentences(t){ return String(t||'').split(/(?<=[。！？…\n])/).map(s=>s.trim()).filter(Boolean); }
 
-let audio = null, queue = [], draining = false;
-function stopAudio(){ queue = []; if (audio){ try{ audio.pause(); }catch(e){} audio = null; } }
-function enqueue(text){ if (text) { queue.push(text); if (!draining) drain(); } }
-function enqueueNarration(text){ splitSentences(text).forEach(s => queue.push(s)); if (!draining) drain(); }
-function playBlob(blob){ return new Promise(res => { audio = new Audio(URL.createObjectURL(blob)); audio.onended = res; audio.onerror = res; audio.play().catch(res); }); }
-async function drain(){
-  draining = true;
-  while (queue.length){
-    const t = queue.shift();
-    const cur = ensureTTS(t);
-    if (queue.length) ensureTTS(queue[0]);   // 流水线：提前取下一句
-    const blob = await cur;
-    if (blob) await playBlob(blob);
+let audio = null, queue = [], playing = false, gen = 0, curResolve = null;
+function stopAudio(){
+  gen++; queue.length = 0;
+  if (audio){ try{ audio.pause(); }catch(e){} audio = null; }
+  if (curResolve){ const r = curResolve; curResolve = null; r(); }   // 解开正在等待的播放，避免队列卡死
+}
+function enqueue(text){ if (text){ queue.push(text); pump(); } }
+function enqueueNarration(text){ splitSentences(text).forEach(s => queue.push(s)); pump(); }
+async function pump(){
+  if (playing) return;
+  playing = true;
+  try{
+    while (queue.length){
+      const myGen = gen;
+      const text = queue.shift();
+      const curBlob = ensureTTS(text);
+      if (queue.length) ensureTTS(queue[0]);
+      const blob = await curBlob;
+      if (myGen !== gen) break;
+      if (blob){
+        await new Promise(res => {
+          curResolve = res;
+          audio = new Audio(URL.createObjectURL(blob));
+          const done = () => { if (curResolve === res) curResolve = null; res(); };
+          audio.onended = done; audio.onerror = done; audio.play().catch(done);
+        });
+        if (myGen !== gen) break;
+      }
+    }
+  } finally {
+    playing = false;
+    if (queue.length) pump();   // 若期间有新内容排入，重启播放
   }
-  draining = false;
 }
 
-// ── 配图：同一幕三选项对应同一张图 → 去重，只预生成一张 ──
+// ── 配图：同一幕三选项 = 同一张图，去重只画一张 ──
 function ensureImage(prompt){
   if (!imgOn || !prompt) return Promise.resolve(null);
   if (!imgCache.has(prompt)) imgCache.set(prompt,
@@ -182,16 +234,15 @@ function render(data){
       b.innerHTML = '<span class="rdy"></span>' + c;
       b.onclick = () => step(c);
       box.appendChild(b);
-      ensureTTS(c);                 // ① 预取选项语音，点下去瞬间就读
+      ensureTTS(c);
     });
     $('type-row').style.display = 'flex';
     startPrefetch(data.choices || []);
   }
-  enqueueNarration(data.narration); // 分句流水线朗读旁白
+  enqueueNarration(data.narration);
   if (data.image_prompt) showImage(data.image_prompt);
 }
 
-// ── 预生成：三选项下一回合并行预取；顺带把（去重后的）下一幕图也预生成 ──
 function clearPrefetch(){ for (const {controller} of pf.values()){ try{ controller.abort(); }catch(e){} } pf = new Map(); }
 function startPrefetch(choices){
   clearPrefetch();
@@ -205,8 +256,8 @@ function startPrefetch(choices){
       .then(d => {
         if (d){
           const el = document.querySelector('.choice[data-c="'+CSS.escape(c)+'"]'); if (el) el.classList.add('ready');
-          if (d.image_prompt) ensureImage(d.image_prompt);   // ② 下一幕图预取（imgCache 去重，实际只画一张）
-          if (d.narration) splitSentences(d.narration).slice(0,1).forEach(s => ensureTTS(s)); // 预取首句语音
+          if (d.image_prompt) ensureImage(d.image_prompt);
+          if (d.narration) splitSentences(d.narration).slice(0,1).forEach(s => ensureTTS(s));
         }
         return d;
       });
@@ -230,7 +281,7 @@ async function start(){ stopAudio(); await callStory({ world_id:'storm-lighthous
 async function step(choice){
   if (busy || !state) return;
   stopAudio();
-  enqueue(choice);              // 先读"你选的那句"（多为已预取，秒响）
+  enqueue(choice);
   const hit = pf.get(choice);
   for (const [c,{controller}] of pf.entries()){ if (c !== choice){ try{ controller.abort(); }catch(e){} } }
   if (hit){
