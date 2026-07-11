@@ -158,6 +158,27 @@ html,body{height:100%;background:#0c0b09}
   font-family:sans-serif;animation:blink-soft 2s ease-in-out infinite
 }
 
+/* ── Settings（音量设置）── */
+#settings-btn{
+  position:fixed;top:18px;right:18px;z-index:40;width:38px;height:38px;border-radius:50%;
+  border:0.5px solid rgba(154,128,72,0.4);background:rgba(12,11,9,0.6);color:#9a8048;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;
+  transition:all 0.25s;user-select:none
+}
+#settings-btn:hover{color:#c9a84c;border-color:#9a8048}
+#settings-panel{
+  position:fixed;top:64px;right:18px;z-index:40;width:230px;
+  background:rgba(20,18,14,0.95);border:0.5px solid rgba(154,128,72,0.35);
+  border-radius:14px;padding:18px 20px;display:none;flex-direction:column;gap:14px
+}
+#settings-panel.open{display:flex}
+.set-row{display:flex;flex-direction:column;gap:6px}
+.set-label{
+  font-size:11px;color:#9a8048;font-family:sans-serif;letter-spacing:2px;
+  display:flex;justify-content:space-between
+}
+.set-row input[type=range]{width:100%;accent-color:#c9a84c;height:3px}
+
 /* ── Toast（错误提示）── */
 #toast{
   position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:60;
@@ -239,6 +260,7 @@ html,body{height:100%;background:#0c0b09}
   <div class="z" id="interact">
     <div class="cta" id="cta-text">选择一段旅程，或告诉魔毯你想去哪里</div>
     <div id="transcript-line"></div>
+    <div class="chips" id="next-chips" style="margin-top:0;margin-bottom:20px"></div>
     <div class="mic-wrap">
       <div class="mic-ring" id="mic-ring"></div>
       <button class="mic-btn" id="mic-btn" aria-label="语音输入">
@@ -261,6 +283,19 @@ html,body{height:100%;background:#0c0b09}
 
 <div id="toast"></div>
 
+<!-- 声音设置 -->
+<div id="settings-btn" title="声音设置">♪</div>
+<div id="settings-panel">
+  <div class="set-row">
+    <div class="set-label"><span>背景音乐</span><span id="vol-amb-val">70%</span></div>
+    <input type="range" id="vol-amb" min="0" max="100" value="70">
+  </div>
+  <div class="set-row">
+    <div class="set-label"><span>旁白人声</span><span id="vol-voice-val">100%</span></div>
+    <input type="range" id="vol-voice" min="0" max="100" value="100">
+  </div>
+</div>
+
 <script>
 /* ════════════════════════════════════════
    蓝本：5 段固定开场（上天 / 下海 / 登山 / 神话 / 科幻）
@@ -281,6 +316,7 @@ const BLUEPRINTS = [
       '魔毯停在平流层的边缘，世界安静得只剩你的呼吸。',
       '想去更高的地方，还是俯瞰这颗蓝色星球？告诉魔毯。',
     ],
+    choices: ['再往上，冲出大气层', '俯冲掠过灯火的城市', '追着极光飞一程'],
   },
   {
     id: 'sea', emoji: '🌊', title: '深海龙宫', sub: '鲸歌 · 琉璃', ambient: 'ocean',
@@ -295,6 +331,7 @@ const BLUEPRINTS = [
       '你在这片温柔的深蓝里，慢慢下沉，慢慢放松。',
       '想去敲开龙宫的大门吗？告诉魔毯。',
     ],
+    choices: ['敲开龙宫的大门', '跟着鲸鱼去更深处', '浮上月光下的海面'],
   },
   {
     id: 'mountain', emoji: '🏔️', title: '雪山之巅', sub: '日出 · 经幡', ambient: 'wind',
@@ -309,6 +346,7 @@ const BLUEPRINTS = [
       '天地辽阔，而你安然。',
       '想沿着冰川继续前行吗？告诉魔毯。',
     ],
+    choices: ['沿着冰川继续前行', '在峰顶多坐一会儿', '飞去神秘的圣湖'],
   },
   {
     id: 'myth', emoji: '🌙', title: '月宫奇遇', sub: '嫦娥 · 桂香', ambient: 'space',
@@ -323,6 +361,7 @@ const BLUEPRINTS = [
       '月光浸过你的肩膀，温柔，而清凉。',
       '想听嫦娥讲月宫的故事吗？告诉魔毯。',
     ],
+    choices: ['听嫦娥讲月宫往事', '和玉兔一起捣药', '在桂树下看地球升起'],
   },
   {
     id: 'scifi', emoji: '🪐', title: '星际漫游', sub: '空间站 · 土星环', ambient: 'space',
@@ -337,6 +376,7 @@ const BLUEPRINTS = [
       '你漂浮在观景舱的中央，失重让身体前所未有地放松。',
       '想降落到土星的卫星上看看吗？告诉魔毯。',
     ],
+    choices: ['降落到土星的卫星', '走进空间站看看', '跃迁去下一个星系'],
   },
 ];
 
@@ -409,7 +449,7 @@ function ambientBus(level, fadeSec) {
   const ac  = getAC();
   const bus = ac.createGain();
   bus.gain.setValueAtTime(0.0001, ac.currentTime);
-  bus.gain.linearRampToValueAtTime(level, ac.currentTime + fadeSec);
+  bus.gain.linearRampToValueAtTime(Math.max(0.0001, level * ambVol), ac.currentTime + fadeSec);
   bus.connect(ac.destination);
   ambMaster = bus;
   ambLevel  = level;
@@ -435,13 +475,15 @@ function stopAmbient() {
   }, 1000);
 }
 // 识别语音时压低环境音（喇叭声会漏进手机麦克风，导致识别刚启动就被判定结束）
+let isDucked = false;
 function duckAmbient(on) {
+  isDucked = on;
   if (!ambMaster) return;
   const ac = getAC();
   try {
     ambMaster.gain.cancelScheduledValues(ac.currentTime);
     ambMaster.gain.setValueAtTime(Math.max(ambMaster.gain.value, 0.0001), ac.currentTime);
-    ambMaster.gain.linearRampToValueAtTime(on ? 0.015 : (ambLevel || 0.12), ac.currentTime + 0.4);
+    ambMaster.gain.linearRampToValueAtTime(on ? 0.015 * ambVol : Math.max(0.0001, (ambLevel || 0.12) * ambVol), ac.currentTime + 0.4);
   } catch (e) {}
 }
 // 和弦铺底：每个音 = 双正弦微失谐（温暖感）+ 极慢 LFO 呼吸起伏
@@ -490,9 +532,38 @@ function playSpace() {
   const bus = ambientBus(0.11, 4);
   pad(bus, [130.8, 196, 261.6, 392, 523.3], 0.12);
 }
+// 沙漠：低沉空旷的小调 drone + 干热的风
+function playDesert() {
+  const bus = ambientBus(0.15, 3);
+  pad(bus, [73.4, 110, 146.8, 220], 0.16);
+  airNoise(bus, 420, 0.09, 0.04);
+}
+// 打斗/紧张：小二度摩擦音 + 心跳般的低鼓
+function playBattle() {
+  const bus = ambientBus(0.15, 1.5);
+  pad(bus, [98, 103.8, 146.8, 196], 0.11);
+  airNoise(bus, 300, 0.07, 0.12);
+  const ac = getAC();
+  const drum = () => {
+    if (ambMaster !== bus) return;   // 场景已切换，停止心跳
+    const o = ac.createOscillator();
+    o.frequency.setValueAtTime(90, ac.currentTime);
+    o.frequency.exponentialRampToValueAtTime(45, ac.currentTime + 0.25);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.5, ac.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.35);
+    o.connect(g); g.connect(bus);
+    o.start(); o.stop(ac.currentTime + 0.4);
+    setTimeout(drum, 850);
+  };
+  setTimeout(drum, 600);
+}
 function pickAmbient(key) {
-  if (key === 'space' || /月|太空|星|天宫|仙|宇宙|广寒|嫦|空间站|土星|银河/.test(key)) playSpace();
-  else if (key === 'ocean' || /海|水|龙宫|深|鲸|珊瑚|潜/.test(key)) playOcean();
+  if (key === 'battle' || /打斗|战斗|激战|妖|魔王|决斗|追逐|风暴|雷电|龙卷|危机|紧张/.test(key)) playBattle();
+  else if (key === 'desert' || /沙漠|大漠|戈壁|绿洲|驼铃|撒哈拉|敦煌/.test(key)) playDesert();
+  else if (key === 'space' || /月|太空|星|天宫|仙|宇宙|广寒|嫦|空间站|土星|银河/.test(key)) playSpace();
+  else if (key === 'sea' || key === 'ocean' || /海|水|龙宫|深|鲸|珊瑚|潜/.test(key)) playOcean();
   else playWind();
 }
 // 起飞"呼——"过渡音效（柔化版）：低通扫频，音量克制
@@ -547,6 +618,42 @@ function toast(msg) {
   toastTimer = setTimeout(() => toastEl.classList.remove('show'), 5000);
 }
 
+/* ── 音量设置：背景音乐 / 旁白人声，记住选择 ── */
+let ambVol = 0.7, voiceVol = 1;
+try {
+  ambVol   = Math.min(1, Math.max(0, parseFloat(localStorage.getItem('mc-vol-amb')   || '0.7')));
+  voiceVol = Math.min(1, Math.max(0, parseFloat(localStorage.getItem('mc-vol-voice') || '1')));
+} catch (e) {}
+function applyAmbVol() {
+  if (!ambMaster || isDucked) return;
+  const ac = getAC();
+  try {
+    ambMaster.gain.cancelScheduledValues(ac.currentTime);
+    ambMaster.gain.setValueAtTime(Math.max(ambMaster.gain.value, 0.0001), ac.currentTime);
+    ambMaster.gain.linearRampToValueAtTime(Math.max(0.0001, (ambLevel || 0.12) * ambVol), ac.currentTime + 0.2);
+  } catch (e) {}
+}
+const setBtn     = document.getElementById('settings-btn');
+const setPanel   = document.getElementById('settings-panel');
+const volAmbEl   = document.getElementById('vol-amb');
+const volVoiceEl = document.getElementById('vol-voice');
+volAmbEl.value   = Math.round(ambVol * 100);
+volVoiceEl.value = Math.round(voiceVol * 100);
+document.getElementById('vol-amb-val').textContent   = Math.round(ambVol * 100) + '%';
+document.getElementById('vol-voice-val').textContent = Math.round(voiceVol * 100) + '%';
+setBtn.addEventListener('click', () => setPanel.classList.toggle('open'));
+volAmbEl.addEventListener('input', () => {
+  ambVol = volAmbEl.value / 100;
+  document.getElementById('vol-amb-val').textContent = volAmbEl.value + '%';
+  try { localStorage.setItem('mc-vol-amb', String(ambVol)); } catch (e) {}
+  applyAmbVol();
+});
+volVoiceEl.addEventListener('input', () => {
+  voiceVol = volVoiceEl.value / 100;
+  document.getElementById('vol-voice-val').textContent = volVoiceEl.value + '%';
+  try { localStorage.setItem('mc-vol-voice', String(voiceVol)); } catch (e) {}
+});
+
 /* ════════════════════════════════════════
    TTS：Cache Storage 缓存 + 分句流水线
    每句 WebAudio 播放（50ms 淡入 / 80ms 淡出，无爆音）
@@ -600,10 +707,11 @@ async function playBlob(blob) {
       const src = ac.createBufferSource(); src.buffer = audioBuf;
       const g = ac.createGain();
       const t = ac.currentTime, d = audioBuf.duration;
+      const vv = Math.max(0.0001, voiceVol);
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.linearRampToValueAtTime(1, t + 0.05);
+      g.gain.linearRampToValueAtTime(vv, t + 0.05);
       const fadeAt = Math.max(t + 0.05, t + d - 0.08);
-      g.gain.setValueAtTime(1, fadeAt);
+      g.gain.setValueAtTime(vv, fadeAt);
       g.gain.linearRampToValueAtTime(0.0001, t + d);
       src.connect(g); g.connect(ac.destination);
       currentSrc = src;
@@ -614,6 +722,7 @@ async function playBlob(blob) {
     return new Promise(resolve => {
       const url = URL.createObjectURL(blob);
       const a = new Audio(url); currentAudio = a;
+      a.volume = Math.max(0, Math.min(1, voiceVol));
       const done = () => { URL.revokeObjectURL(url); currentAudio = null; resolve(); };
       a.onended = done; a.onerror = done; a.play().catch(done);
     });
@@ -703,6 +812,7 @@ async function startBlueprint(bp) {
   stopSpeaking();
   stopVoice();
   trLine.textContent = '';
+  nextChips.innerHTML = '';
 
   stopAmbient();
   playWhoosh();
@@ -717,7 +827,8 @@ async function startBlueprint(bp) {
     onSentence: i => renderProgress(bp.sentences, i),
   });
   if (finished) {
-    ctaText.textContent = '想继续深入，还是飞向别处？告诉魔毯……';
+    showChoices(bp.choices);
+    ctaText.textContent = '点一个走向，或告诉魔毯你的想法……';
     setPhase('listening');
   }
 }
@@ -728,6 +839,7 @@ async function goTo(dest) {
   stopSpeaking();
   stopVoice();
   trLine.textContent = '';
+  nextChips.innerHTML = '';
 
   stopAmbient();
   playWhoosh();
@@ -755,7 +867,7 @@ async function goTo(dest) {
   lastJourneyText = text;
 
   stopAmbient();
-  pickAmbient(dest);
+  pickAmbient((data && data.mood) || dest);
   sl.textContent = `· 当前目的地：${dest} ·`;
   setPhase('speaking');
   renderProgress(sentences, -1);
@@ -765,7 +877,8 @@ async function goTo(dest) {
     onSentence: i => renderProgress(sentences, i),
   });
   if (finished) {
-    ctaText.textContent = '想继续深入，还是飞向别处？告诉魔毯……';
+    showChoices(data && data.choices);
+    ctaText.textContent = '点一个走向，或告诉魔毯你的想法……';
     setPhase('listening');
   }
 }
@@ -800,6 +913,19 @@ let recStream = null, recCtx = null, recNode = null, recChunks = [];
 
 const typeRow   = document.getElementById('type-row');
 const typeInput = document.getElementById('type-input');
+const nextChips = document.getElementById('next-chips');
+
+// 故事分支选项：点选项 = 直接飞往该走向
+function showChoices(list) {
+  nextChips.innerHTML = '';
+  (list || []).slice(0, 3).forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'chip';
+    el.textContent = c;
+    el.onclick = () => goTo(c);
+    nextChips.appendChild(el);
+  });
+}
 
 function micClick() {
   if (recording)   { finishRecorder(); return; }   // 录音中再点 = 结束并识别
@@ -895,13 +1021,35 @@ async function startRecorder() {
   recCtx = new (window.AudioContext || window.webkitAudioContext)();
   const srcNode = recCtx.createMediaStreamSource(stream);
   recNode = recCtx.createScriptProcessor(4096, 1, 1);
-  recNode.onaudioprocess = ev => { if (recording) recChunks.push(new Float32Array(ev.inputBuffer.getChannelData(0))); };
+
+  // 语音端点检测（VAD）：开口后停顿 ~1.5 秒自动结束，无需再点按钮
+  const started  = Date.now();
+  let   noiseSum = 0, noiseCnt = 0, noiseFloor = null;
+  let   spoke    = false, lastLoud = 0;
+  recNode.onaudioprocess = ev => {
+    if (!recording) return;
+    const d = ev.inputBuffer.getChannelData(0);
+    recChunks.push(new Float32Array(d));
+    let sum = 0;
+    for (let i = 0; i < d.length; i += 8) sum += d[i] * d[i];
+    const rms = Math.sqrt(sum / (d.length / 8));
+    const now = Date.now();
+    if (now - started < 450) { noiseSum += rms; noiseCnt++; return; }   // 前 0.45s 采环境噪声基线
+    if (noiseFloor === null) noiseFloor = noiseSum / Math.max(1, noiseCnt);
+    const threshold = Math.max(noiseFloor * 2.8, 0.012);
+    if (rms > threshold) {
+      if (!spoke) trLine.textContent = '（听到了，请继续……说完停顿一下即可）';
+      spoke = true; lastLoud = now;
+    }
+    if (spoke  && now - lastLoud > 1500) finishRecorder();              // 说完停顿 1.5s → 自动结束
+    if (!spoke && now - started  > 9000) { teardownRecorder(); trLine.textContent = ''; toast('没有听到声音，再试一次？'); }
+  };
   const mute = recCtx.createGain(); mute.gain.value = 0;
   srcNode.connect(recNode); recNode.connect(mute); mute.connect(recCtx.destination);
   setMicOn(true);
-  trLine.textContent = '（正在聆听……说完后再点一下麦克风）';
+  trLine.textContent = '（正在聆听……直接开口说就好）';
   clearTimeout(voiceTimer);
-  voiceTimer = setTimeout(finishRecorder, 12000);   // 最长录 12 秒
+  voiceTimer = setTimeout(finishRecorder, 30000);   // 兜底上限 30 秒
 }
 function teardownRecorder() {
   recording = false;
@@ -1013,6 +1161,6 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   if (finished) setPhase('listening');
 });
 </script>
-<!-- v5: server ASR fallback (Volcengine bigmodel flash) + text input -->
+<!-- v6: VAD auto-stop recording + desert/battle ambient + volume settings + story choices -->
 </body>
 </html>
