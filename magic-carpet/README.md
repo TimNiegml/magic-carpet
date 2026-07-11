@@ -1,5 +1,22 @@
 # 🪄 魔毯冥想旅程 — 部署指南
 
+## 📮 反馈箱（v1.7 · 反馈直达 GitHub）
+
+页面右下角新增「✎ 反馈」按钮，用户提交的反馈会通过 `/api/feedback` **自动在你的 GitHub 仓库开一个 Issue**（含旅程目的地、可选联系方式、设备信息）。
+
+启用只需两个环境变量：
+
+1. `GITHUB_TOKEN` —— 有 Issues 写权限的 Token（[申请](https://github.com/settings/tokens)；Fine-grained 授予目标仓库 `Issues = Read and write`，或经典 token 勾选 `repo`）
+2. `GITHUB_REPO` —— 目标仓库，格式 `owner/repo`，例如 `TimNiegml/magic-carpet`
+3. 可选 `GITHUB_ISSUE_LABELS` —— Issue 标签，逗号分隔，默认 `feedback`
+
+在 Vercel 里 `vercel env add GITHUB_TOKEN` / `GITHUB_REPO` 后 `vercel --prod` 重新部署即可。
+
+> 页脚已标注：创意版权归属「活满」所有 · 贡献人：炜仔 及活满全体工作人员。
+
+---
+
+
 ## ✨ v1.1 更新（2026-07）
 
 - **修复 TTS 无声音**：浏览器禁止无用户手势的自动播放，现在进入页面先点「轻触魔毯 · 开始旅程」解锁音频；同时修正了火山引擎 v1 接口混用 v3 请求头的问题
