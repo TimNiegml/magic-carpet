@@ -74,7 +74,7 @@ ${JSON.stringify(dossiers, null, 1)}
 
 优先让角色主动与"你"（玩家）产生互动：迎向你、对你说话、请你帮忙、把东西交给你、或因你此前的选择而改变对你的态度。
 对每个涉及角色，输出一个"预期动作"（最符合其价值观与欲望）+ 1~2 个"合理但不显眼"的替代分支。
-字段：gist(该角色此刻的抉择/行动，一句), foreshadow(可埋的一处细小伏笔，一句), surfaced(玩家能察觉到的后果，一句), soul_delta{mood,arc_advance(true/false),memory_add,rel_player_shift(-2到2整数)}, leaning("A"救灯团圆/"B"以人代灯/"C"错过, 或 null), plausibility(0到1, 仅替代分支需要)。
+字段：gist(该角色此刻的抉择/行动，一句), foreshadow(可埋的一处细小伏笔，一句), surfaced(玩家能察觉到的后果，一句), soul_delta{mood,arc_advance(true/false),memory_add,rel_player_shift(-2到2整数)}, leaning(结局倾向，取值 ${world.leaning_legend}，或 null), plausibility(0到1, 仅替代分支需要)。
 严格输出：{"advances":[{"character":"名","expected":{...},"alternatives":[{...}]}]}`;
 
   const r = await fetch('https://api.deepseek.com/chat/completions', {
@@ -135,10 +135,10 @@ function checkConvergence(world, state) {
     (state.turn >= world.act_clock.target_turns || state.tension >= 5);
   if (!ready) return null;
   const L = state.flags.leaning;
-  let best = 'A', bv = -Infinity;
-  for (const k of ['A', 'B', 'C']) if (L[k] > bv) { bv = L[k]; best = k; }
-  const map = { A: 'A_light_on', B: 'B_human_beacon', C: 'C_missed' };
-  return world.convergence.variants.find(v => v.id === map[best]) || world.convergence.variants[0];
+  const order = ['A', 'B', 'C'];
+  let bestIdx = 0, bv = -Infinity;
+  order.forEach((k, i) => { if ((L[k] || 0) > bv) { bv = L[k] || 0; bestIdx = i; } });
+  return world.convergence.variants[bestIdx] || world.convergence.variants[0];
 }
 
 
@@ -265,6 +265,7 @@ export default async function handler(req, res) {
       narration: out.narration,
       choices: out.choices,
       image_prompt,
+      world_meta: first ? { title: world.title, logline: world.logline } : undefined,
       state,
       done: !!ending,
       ending: ending ? { id: ending.id, title: ending.title } : null,

@@ -89,6 +89,12 @@ html,body{height:100%;background:var(--bg)}
 .thinking{font-family:'Cinzel',serif;font-size:11px;letter-spacing:5px;color:var(--gold-dim);text-align:center;margin:0 0 14px;animation:blink 2s infinite}
 @keyframes blink{0%,100%{opacity:.35}50%{opacity:.85}}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 rgba(201,168,76,0)}50%{box-shadow:0 0 26px rgba(201,168,76,0.22)}}
+#world-pick{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;max-width:600px;margin:4px 0}
+.world-card{width:262px;text-align:left;padding:18px 20px;border-radius:14px;cursor:pointer;
+  border:1px solid rgba(154,128,72,0.35);background:linear-gradient(180deg,rgba(201,168,76,0.08),rgba(154,128,72,0.03));transition:all .25s}
+.world-card:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:0 14px 34px rgba(0,0,0,0.45)}
+.world-card .wt{font-size:1.02rem;color:var(--gold);letter-spacing:3px;margin-bottom:9px}
+.world-card .wl{font-size:11px;color:var(--ink-dim);font-family:sans-serif;line-height:1.75}
 @media(max-width:920px){ .stage{flex-direction:column;align-items:center} .right{width:100%;max-width:540px;order:-1} .left{max-width:540px} }
 </style>
 </head>
@@ -96,9 +102,9 @@ html,body{height:100%;background:var(--bg)}
 <div id="vignette"></div>
 <div id="app">
   <div class="eyebrow">HOFFMAN · 魔毯世界</div>
-  <div class="title">潮汐灯塔 · 风暴夜</div>
+  <div class="title" id="hdr-title">潮汐灯塔 · 风暴夜</div>
   <div class="divider"><span class="l"></span><span class="d">◆</span><span class="l r"></span></div>
-  <div class="logline">风暴将至的孤岛旧灯塔，一艘船正驶向礁石，而今夜每个人都藏着一件事。你被困在这里，成了今夜的关键。</div>
+  <div class="logline" id="hdr-logline">选择一个世界，开始今夜。</div>
   <div class="stage">
     <div class="left">
       <div class="narration" id="narration">铺开你的魔毯……</div>
@@ -133,8 +139,8 @@ html,body{height:100%;background:var(--bg)}
 
 <div id="overlay">
   <div class="ov-eyebrow">HOFFMAN · 魔毯世界</div>
-  <div class="ov-title">潮汐灯塔 · 风暴夜</div>
-  <button class="start-btn" id="start-btn">轻触魔毯 · 进入这一夜</button>
+  <div class="ov-title">选择一个世界</div>
+  <div id="world-pick"></div>
   <div class="ov-hint">PUT ON HEADPHONES · DIM THE LIGHTS</div>
 </div>
 
@@ -143,6 +149,7 @@ const $ = id => document.getElementById(id);
 let state = null, busy = false;
 let seed = Math.floor(Math.random()*1e6);
 let surprise = 40, prefetchOn = true, imgOn = true;
+let worldId = 'storm-lighthouse';
 let pf = new Map();
 const ttsCache = new Map();
 const imgCache = new Map();
@@ -239,6 +246,7 @@ function render(data){
     $('type-row').style.display = 'flex';
     startPrefetch(data.choices || []);
   }
+  if (data.world_meta) setHeader(data.world_meta.title, data.world_meta.logline);
   enqueueNarration(data.narration);
   if (data.image_prompt) showImage(data.image_prompt);
 }
@@ -276,7 +284,7 @@ async function callStory(payload){
   finally{ setThinking(false); busy = false; }
 }
 
-async function start(){ stopAudio(); await callStory({ world_id:'storm-lighthouse', params:{ seed, surprise } }); }
+async function start(){ stopAudio(); await callStory({ world_id: worldId, params:{ seed, surprise } }); }
 
 async function step(choice){
   if (busy || !state) return;
@@ -299,7 +307,13 @@ $('type-go').addEventListener('click', ()=>{ const t=$('type-input').value.trim(
 $('type-input').addEventListener('keydown', e=>{ if(e.key==='Enter'){ const t=e.target.value.trim(); if(t){ e.target.value=''; step(t);} } });
 $('reroll').addEventListener('click', ()=>{ seed = Math.floor(Math.random()*1e6); showSeed(); state=null; clearPrefetch(); start(); });
 $('restart').addEventListener('click', ()=>{ state=null; clearPrefetch(); start(); });
-$('start-btn').addEventListener('click', ()=>{ $('overlay').classList.add('hide'); showSeed(); start(); });
+const WORLDS = [
+  { id:'storm-lighthouse', title:'潮汐灯塔 · 风暴夜', logline:'风暴将至的孤岛旧灯塔，一艘船正驶向礁石，而今夜每个人都藏着一件事。你被困在这里，成了今夜的关键。' },
+  { id:'nie-xiaoqian', title:'兰若寺 · 聂小倩', logline:'荒山古寺，月色如霜。你夜宿于此，一位白衣女子踏月而来——她的温柔里，藏着一桩要命的差事。' },
+];
+function setHeader(t,l){ $('hdr-title').textContent=t; $('hdr-logline').textContent=l; document.title=t+' — 魔毯世界'; }
+function chooseWorld(o){ worldId=o.id; setHeader(o.title,o.logline); $('overlay').classList.add('hide'); showSeed(); start(); }
+(function buildPick(){ const w=$('world-pick'); WORLDS.forEach(o=>{ const c=document.createElement('div'); c.className='world-card'; c.innerHTML='<div class="wt">'+o.title+'</div><div class="wl">'+o.logline+'</div>'; c.onclick=()=>chooseWorld(o); w.appendChild(c); }); })();
 showSeed();
 </script>
 </body>

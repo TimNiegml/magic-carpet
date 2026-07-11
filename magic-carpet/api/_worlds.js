@@ -73,8 +73,85 @@ const STORM_LIGHTHOUSE = {
       C_missed: '风暴后死寂的清晨，灯塔黯淡无光，灰白的海面空茫，一种苦涩的留白'
     }
   },
+  leaning_legend: '"A"合力点亮灯塔化解隔阂的圆满 / "B"以人代灯悲壮救船 / "C"隔阂未解错过与失落',
   act_clock: { acts: 3, target_turns: 12, act2_at: 3, act3_at: 7 },
   default_params: { surprise: 40, seed: 0, story_level: 80, pace: 15, agency: 60 }
 };
 
-export default { 'storm-lighthouse': STORM_LIGHTHOUSE };
+
+const NIE_XIAOQIAN = {
+  id: 'nie-xiaoqian',
+  title: '兰若寺 · 聂小倩',
+  logline: '荒山古寺，月色如霜。你夜宿于此，一位白衣女子踏月而来——她的温柔里，藏着一桩要命的差事。',
+  setting: '取材自《聊斋志异·聂小倩》。一座荒废的兰若寺，坐落在乱葬岗旁。今夜你借宿于此，同宿的还有一位按剑独坐的剑客。寺后有一株千年枯树，夜里，白衣的女子会踏着月光而来。',
+  tone: '东方志怪的清冷与哀婉；月色、兰香、寒意与不忍交织，温柔之下暗流汹涌，不喧哗、不血腥，把惊悚化作一缕说不出口的心事。',
+  player_role: {
+    name: '你（宁采臣）',
+    who: '一位赶考途中借宿兰若寺的书生，为人磊落，囊中羞涩，却有一身不肯低头的正气。',
+    can_influence: '你对小倩的态度、对燕赤霞的信任、对危险的警觉，将决定今夜是降妖收骨的圆满，还是长夜未明的沉沦。'
+  },
+  souls: [
+    {
+      name: '聂小倩',
+      role: '踏月而来的白衣女子',
+      core_desire: '脱离妖物的胁迫，求一场干净的安葬，做回一个人。',
+      values: ['不愿再害无辜', '宁可自己受罚，也要护你一次'],
+      secret: '她本是奉姥姥之命，前来以色相与金锭取你性命；可她动了恻隐，想反过来warn你，甚至托你把她枯骨迁回故土安葬。',
+      relationship_to_player_init: '试探，眼底藏着不忍',
+      opening_mood: '楚楚之下压着犹豫',
+      arc_path: ['奉命试探', '恻隐动摇', '倒戈相护', '托你收骨']
+    },
+    {
+      name: '燕赤霞',
+      role: '借宿寺中、按剑独坐的剑客',
+      core_desire: '除掉盘踞兰若寺、害人无数的千年妖物。',
+      values: ['正邪分明', '先怀疑，再信任'],
+      secret: '他早已察觉寺中妖气，剑匣里藏着一柄能取人首级于百里的飞剑；他在暗暗观察你是否已被迷惑、是否可托付。',
+      relationship_to_player_init: '冷峻、戒备',
+      opening_mood: '按剑而坐的警惕',
+      arc_path: ['冷眼旁观', '试探你', '联手', '决战']
+    },
+    {
+      name: '姥姥',
+      role: '寺中若隐若现的老妪',
+      core_desire: '吞食生人精血以续妖躯，绝不容小倩背叛。',
+      values: ['视人为食', '背叛者必受重罚'],
+      secret: '她的真身是寺后那株千年枯树，操控小倩害人多年；一旦察觉小倩起了异心，便会痛下杀手。',
+      relationship_to_player_init: '表面慈和，暗处窥伺',
+      opening_mood: '藏在阴影里的觊觎',
+      arc_path: ['遣倩取人', '起疑', '逼迫', '现身']
+    }
+  ],
+  beats: [
+    { id: 'n1_visit', act: 1, after_turn: 1, involves: ['聂小倩'], cue: '月光里，一位白衣女子踏进你的院落', hint: '小倩奉命前来试探、以温柔与金锭诱你；让她直接与你搭话，但眼里要有一丝不忍的破绽。' },
+    { id: 'n1b_warn', act: 1, after_turn: 2, involves: ['燕赤霞'], cue: '燕赤霞按剑，冷冷看你一眼', hint: '燕赤霞警告你今夜寺中不干净、或试探你是否已中邪；让他直接对你说话。' },
+    { id: 'n2_confess', act: 2, after_turn: 3, involves: ['聂小倩'], cue: '小倩忽然拉住你的衣袖，声音发颤', hint: '小倩向你吐露真相：她是被姥姥胁迫的；她求你别喝那杯、别碰那锭金，甚至托你日后收她枯骨。让她与你直接互动。' },
+    { id: 'n2b_force', act: 2, after_turn: 4, involves: ['姥姥', '聂小倩'], cue: '一阵阴风，老妪的声音在梁上响起', hint: '姥姥起疑，逼迫小倩下手，或直接向你施压；营造被窥伺、被逼迫的紧张。' },
+    { id: 'n2c_ally', act: 2, after_turn: 5, involves: ['燕赤霞'], cue: '燕赤霞递给你一样东西', hint: '燕赤霞是否愿与你联手，取决于你是否已被迷惑、是否可信；让他把某样护身之物交到你手里，或要你做一个决定。' },
+    { id: 'n3_final', act: 3, after_turn: 5, involves: ['聂小倩', '燕赤霞', '姥姥'], cue: '寺后枯树轰然震动，妖雾弥漫', hint: '姥姥现出真身，燕赤霞拔剑降妖，小倩在生死之间求你相护、求你收骨。所有秘密在此刻摊开，都等你表态。' }
+  ],
+  convergence: {
+    trigger: { act: 3, min_turn: 6 },
+    variants: [
+      { id: 'A_redeemed', title: '收骨归葬 · 妖除人安', when: '你识破妖计、与燕赤霞联手降妖，并带走小倩枯骨归葬', tone: '温暖而释然；小倩得以解脱，或化作一缕善念长伴，晨光温柔' },
+      { id: 'B_pyrrhic', title: '惨胜之夜', when: '妖虽除，燕赤霞或小倩为护你而重创、消散，代价沉重', tone: '悲壮动人；你在灰烬与晨雾里，记住了这一夜谁替你挡下了什么' },
+      { id: 'C_doomed', title: '长夜未明', when: '你终被迷惑、或枯骨未收、妖气未散', tone: '苦涩、留白；兰若寺的长夜没有迎来黎明，有些话再没机会说出口' }
+    ]
+  },
+  scenes: {
+    intro: '荒山古寺，寒月当空，断壁残垣间野草蔓生，乱葬岗的雾气弥漫，一盏孤灯在破殿里摇曳',
+    act1: '兰若寺破败的殿内，烛火摇曳，蛛网横梁，尘封的佛像，一位按剑的剑客独坐阴影中',
+    act2: '月色下的空旷回廊，一位白衣女子立于兰花与阴影之间，寒意森森，兰香浮动',
+    act3: '古寺深处，寺后千年枯树狰狞盘曲，妖雾翻涌，剑光与阴风在月夜中交织的决战',
+    endings: {
+      A_redeemed: '拂晓时分，寺外一座新坟，兰草轻摇，晨光柔和地洒在湿润的泥土上，安宁',
+      B_pyrrhic: '残破的寺院里，剑客独立于晨雾，衣袂染血，一线惨淡天光，悲壮',
+      C_doomed: '幽暗的古寺被白雾吞没，枯树的剪影狰狞，一种被吞没的、说不出口的苦涩留白'
+    }
+  },
+  leaning_legend: '"A"识破降妖、收骨归葬的圆满 / "B"惨胜、除妖但付出沉重代价 / "C"被迷惑或未能相救的沉沦',
+  act_clock: { acts: 3, target_turns: 12, act2_at: 3, act3_at: 7 },
+  default_params: { surprise: 45, seed: 0, story_level: 85, pace: 12, agency: 60 }
+};
+
+export default { 'storm-lighthouse': STORM_LIGHTHOUSE, 'nie-xiaoqian': NIE_XIAOQIAN };
