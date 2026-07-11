@@ -37,7 +37,7 @@ function initState(world, params) {
   return {
     world_id: world.id, turn: 0, act: 1, tension: 0,
     params: p, player_choices: [], souls,
-    world_events: [], flags: { fired: [], foreshadows: [], leaning: { A: 0, B: 0, C: 0 } },
+    world_events: [], flags: { fired: [], foreshadows: [], leaning: { A: 0, B: 0, C: 0 }, scene: null },
   };
 }
 
@@ -138,6 +138,19 @@ function checkConvergence(world, state) {
   for (const k of ['A', 'B', 'C']) if (L[k] > bv) { bv = L[k]; best = k; }
   const map = { A: 'A_light_on', B: 'B_human_beacon', C: 'C_missed' };
   return world.convergence.variants.find(v => v.id === map[best]) || world.convergence.variants[0];
+}
+
+
+// ── 配图：换幕/开场/结局才出新图（每幕一张，控延时与成本）──
+function sceneFor(world, state, ending, first) {
+  const sc = world.scenes || {};
+  let key, prompt;
+  if (ending) { key = 'end:' + ending.id; prompt = (sc.endings || {})[ending.id]; }
+  else if (first) { key = 'intro'; prompt = sc.intro; }
+  else { key = 'act' + state.act; prompt = sc['act' + state.act]; }
+  if (!prompt || state.flags.scene === key) return null;
+  state.flags.scene = key;
+  return prompt;
 }
 
 // ── 旁白：Claude Sonnet（用 --- 分隔正文与选项，避开 JSON 对散文的脆弱性）──
@@ -241,10 +254,12 @@ export default async function handler(req, res) {
     // 汇聚判定
     const ending = first ? null : checkConvergence(world, state);
     const out = await narrate(world, state, { surfaced, first, ending }, anthKey);
+    const image_prompt = sceneFor(world, state, ending, first);
 
     return res.json({
       narration: out.narration,
       choices: out.choices,
+      image_prompt,
       state,
       done: !!ending,
       ending: ending ? { id: ending.id, title: ending.title } : null,
