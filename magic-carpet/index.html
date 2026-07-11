@@ -569,9 +569,9 @@ function airNoise(bus, cutoff, lvl, lfoRate) {
 }
 // 音乐风格系数：pad=和弦铺底 noise=自然音效 arp=拨弦琶音 gap=琶音间隔
 const STYLE_CFG = {
-  classical: { pad: 0.55, noise: 0.8, arp: 1.5, gap: 0.55 },   // 轻盈古典：琶音为主
-  nature:    { pad: 0.30, noise: 1.5, arp: 0.7, gap: 1.2 },    // 自然之声：风浪水为主
-  ambient:   { pad: 1.40, noise: 1.0, arp: 0,   gap: 1 },      // 纯氛围：铺底为主
+  classical: { pad: 0.40, noise: 0.45, arp: 2.2, gap: 0.45 },  // 轻盈古典：竖琴主导，风噪压低
+  nature:    { pad: 0.30, noise: 1.5,  arp: 0.9, gap: 1.2 },   // 自然之声：风浪水为主
+  ambient:   { pad: 1.40, noise: 1.0,  arp: 0,   gap: 1 },     // 纯氛围：铺底为主
 };
 function styleCfg() { return STYLE_CFG[musicStyle] || STYLE_CFG.classical; }
 let lastAmbientKey = null;
@@ -613,7 +613,7 @@ function playSample(inst, freq, vol, bus) {
   src.buffer = bank[bestF];
   src.playbackRate.value = freq / bestF;
   const g = ac.createGain();
-  g.gain.value = vol * 3.0;   // 采样响度比合成音低，抬一档
+  g.gain.value = vol * 5.5;   // 采样响度比合成音低，大幅抬高
   src.connect(g); g.connect(bus);
   src.onended = () => { try { g.disconnect(); } catch (e) {} };
   src.start();
@@ -665,7 +665,7 @@ function playWind() {
   const bus = ambientBus(0.16, 3);
   pad(bus, [110, 164.8, 220, 329.6], 0.09 * S.pad);
   airNoise(bus, 240, 0.11 * S.noise, 0.05);
-  if (S.arp) arp(bus, [440, 493.9, 554.4, 659.3, 740], 2200 * S.gap, 5000 * S.gap, 0.12 * S.arp);
+  if (S.arp) arp(bus, [440, 493.9, 554.4, 659.3, 740], 2200 * S.gap, 5000 * S.gap, 0.16 * S.arp);
 }
 // 海洋：浪的涌动 + 低音偶尔轻拨
 function playOcean() {
@@ -675,7 +675,7 @@ function playOcean() {
   const bus = ambientBus(0.16, 3.5);
   pad(bus, [82.4, 123.5, 164.8, 246.9], 0.11 * S.pad);
   airNoise(bus, 140, 0.17 * S.noise, 0.07);
-  if (S.arp) arp(bus, [220, 246.9, 293.7, 329.6], 3500 * S.gap, 7000 * S.gap, 0.08 * S.arp);
+  if (S.arp) arp(bus, [220, 246.9, 293.7, 329.6], 3500 * S.gap, 7000 * S.gap, 0.12 * S.arp);
 }
 // 星空：清冷微光 + 极稀疏的高音星子
 function playSpace() {
@@ -684,7 +684,7 @@ function playSpace() {
   const S = styleCfg();
   const bus = ambientBus(0.11, 4);
   pad(bus, [130.8, 196, 261.6, 392, 523.3], 0.09 * S.pad);
-  if (S.arp) arp(bus, [1046.5, 1174.7, 1318.5, 1568], 4000 * S.gap, 8500 * S.gap, 0.05 * S.arp);
+  if (S.arp) arp(bus, [1046.5, 1174.7, 1318.5, 1568], 4000 * S.gap, 8500 * S.gap, 0.10 * S.arp);
 }
 // 溪流/泉水：潺潺水声 + 高音轻拨
 function playStream() {
@@ -694,7 +694,7 @@ function playStream() {
   const bus = ambientBus(0.16, 2.5);
   pad(bus, [146.8, 220, 293.7], 0.07 * S.pad);
   burble(bus, 0.10 * S.noise);
-  if (S.arp) arp(bus, [587.3, 659.3, 784, 880], 2800 * S.gap, 6000 * S.gap, 0.09 * S.arp);
+  if (S.arp) arp(bus, [587.3, 659.3, 784, 880], 2800 * S.gap, 6000 * S.gap, 0.13 * S.arp);
 }
 // 沙漠：空旷的风 + 稀疏驼铃般的轻拨
 function playDesert() {
@@ -704,7 +704,7 @@ function playDesert() {
   const bus = ambientBus(0.15, 3);
   pad(bus, [73.4, 110, 146.8, 220], 0.09 * S.pad);
   airNoise(bus, 420, 0.10 * S.noise, 0.04);
-  if (S.arp) arp(bus, [293.7, 349.2, 440, 523.3], 3000 * S.gap, 6500 * S.gap, 0.09 * S.arp);
+  if (S.arp) arp(bus, [293.7, 349.2, 440, 523.3], 3000 * S.gap, 6500 * S.gap, 0.13 * S.arp);
 }
 // 打斗/紧张：小二度摩擦音 + 心跳般的低鼓
 function playBattle() {
@@ -1454,6 +1454,7 @@ document.getElementById('start-btn').addEventListener('click', async () => {
 
   prefetchAll();   // 后台静默预取，不阻塞开场
   loadSamples();   // 后台加载竖琴/八音盒采样，加载完自动替换合成音
+  pickAmbient('calm');   // 开场即有轻柔竖琴，不再等到起飞才有音乐
 
   setPhase('speaking');
   renderProgress(INTRO_SENTENCES, -1);
@@ -1464,6 +1465,6 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   if (finished) { setPhase('listening'); maybeAutoListen(); }
 });
 </script>
-<!-- v10: real instrument samples (harp/musicbox, FluidR3) with synth fallback -->
+<!-- v10.1: mix rebalance - harp forward, noise/pad down, music from the very start -->
 </body>
 </html>
