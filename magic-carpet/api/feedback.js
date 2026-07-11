@@ -2,7 +2,7 @@
 // 接收 { message, contact?, journey?, meta? }
 // 需要环境变量：
 //   GITHUB_TOKEN  —— 有 repo/issues 写权限的 GitHub Token（Fine-grained: Issues=Read&Write，或经典 token 勾选 repo）
-//   GITHUB_REPO   —— 目标仓库，格式 owner/repo，例如 niegaowei/magic-carpet
+//   GITHUB_REPO   —— 目标仓库，格式 owner/repo，例如 TimNiegml/magic-carpet
 // 可选：
 //   GITHUB_ISSUE_LABELS —— 逗号分隔的标签，默认 "feedback"
 
@@ -41,20 +41,31 @@ export default async function handler(req, res) {
     '_由「魔毯」应用内反馈箱自动创建_',
   ].filter(Boolean);
 
-  try {
-    const gh = await fetch(`https://api.github.com/repos/${repo}/issues`, {
-      method: 'POST',
-      headers: {
-        'Authorization':        `Bearer ${token}`,
-        'Accept':               'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-        'Content-Type':         'application/json',
-        'User-Agent':           'magic-carpet-feedback',
-      },
-      body: JSON.stringify({ title, body: bodyLines.join('\n'), labels }),
-    });
+  const endpoint = `https://api.github.com/repos/${repo}/issues`;
+  const headers = {
+    'Authorization':        `Bearer ${token}`,
+    'Accept':               'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'Content-Type':         'application/json',
+    'User-Agent':           'magic-carpet-feedback',
+  };
+  const body = bodyLines.join('\n');
 
+  async function createIssue(withLabels) {
+    const payload = { title, body };
+    if (withLabels && labels.length) payload.labels = labels;
+    const gh   = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(payload) });
     const data = await gh.json().catch(() => null);
+    return { gh, data };
+  }
+
+  try {
+    let { gh, data } = await createIssue(true);
+
+    // 若因标签不存在（仓库还没建 feedback 标签）导致 422，则去掉标签重试一次，保证反馈一定能提交
+    if (!gh.ok && gh.status === 422 && labels.length) {
+      ({ gh, data } = await createIssue(false));
+    }
 
     if (gh.ok && data && data.html_url) {
       return res.json({ ok: true, url: data.html_url, number: data.number });
