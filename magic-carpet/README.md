@@ -9,6 +9,18 @@
 - **手机语音输入**：浏览器自带识别不可用时（小米浏览器、国内安卓 Chrome 等），自动切换为录音上传火山引擎「大模型录音文件极速版识别」——需在控制台开通该服务（资源 ID `volc.bigasr.auc_turbo`，共用 VOLC_APPID/TOKEN）；另有文字输入兜底
 - **注意**：改动 `VOLC_VOICE` 或蓝本文案后，请把 index.html 里的 `TTS_CACHE` 版本号 +1，否则老缓存不会失效；改完记得 `vercel --prod` 重新部署
 
+## 🎙 语音质量升级（v1.6）
+
+TTS 现在是双引擎：优先走 **豆包语音合成大模型 v3**（自然度高、有情感），失败自动回落老 v1 接口（保证可用）。
+
+要启用大模型音质：
+1. 打开 https://console.volcengine.com/speech/service/10007 开通「语音合成大模型」（用同一个应用，无需新 Key）
+2. 在该页面购买/领取音色，推荐 `zh_female_wanwanxiaohe_moon_bigtts`（湾湾小何，默认）
+3. 可选环境变量：`VOLC_VOICE_V3` 换音色；`VOLC_TTS_RESOURCE=seed-tts-2.0` 切换到豆包2.0（需另在 service/10035 开通，音色如 `zh_female_xiaohe_uranus_bigtts`）
+4. 换音色后把 index.html 里 `TTS_CACHE` 版本号 +1
+
+---
+
 ## 第一步：申请火山引擎 TTS API Key
 
 1. 打开 https://www.volcengine.com 注册账号（支持微信/手机号）

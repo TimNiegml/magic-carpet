@@ -659,7 +659,7 @@ volVoiceEl.addEventListener('input', () => {
    每句 WebAudio 播放（50ms 淡入 / 80ms 淡出，无爆音）
    句间自然停顿 pauseMs（默认 600ms）
 ════════════════════════════════════════ */
-const TTS_CACHE = 'mc-tts-v1';   // 换音色/情感后请修改版本号使缓存失效
+const TTS_CACHE = 'mc-tts-v2';   // 换音色/情感后请修改版本号使缓存失效
 let cacheApi = null;
 async function getCache() {
   if (cacheApi !== null) return cacheApi;
