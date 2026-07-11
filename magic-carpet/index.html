@@ -375,7 +375,7 @@ const BLUEPRINTS = [
       '成群的发光水母从你身边飘过，像一盏一盏温柔的小灯笼。',
       '远处传来鲸鱼低沉的歌声，穿过整片海洋，落进你的胸口。',
       '珊瑚宫殿在幽蓝中亮起，龙宫的琉璃瓦，闪着珍珠的光。',
-      '水流托着你，像被大海轻轻抱住。',
+      '一条小银鱼跃到你的面前，好奇地碰了碰你的指尖，又摆着尾巴钻进珊瑚丛。',
       '你在这片温柔的深蓝里，慢慢下沉，慢慢放松。',
       '想去敲开龙宫的大门吗？告诉魔毯。',
     ],
@@ -390,7 +390,7 @@ const BLUEPRINTS = [
       '云海在脚下翻涌，八千米的峰顶，就在前方。',
       '第一缕阳光越过山脊，雪坡瞬间被染成金红色。',
       '风很轻，经幡在远处哗啦作响，像大地的呼吸。',
-      '你坐在世界之巅，胸腔里满是清冽干净的空气。',
+      '一片雪花轻轻落在你的睫毛上，凉凉的，慢慢化成一滴清亮的水。',
       '天地辽阔，而你安然。',
       '想沿着冰川继续前行吗？告诉魔毯。',
     ],
@@ -420,7 +420,7 @@ const BLUEPRINTS = [
       '眼前豁然开朗，一座巨大的环形空间站，正静静悬在土星光环之上。',
       '万吨的冰晶环带在舷窗外缓缓旋转，折射出七彩的光。',
       '空间站里的人工晨光刚刚亮起，温柔得像春天的清晨。',
-      '一艘飞船拖着淡蓝色的尾焰远去，安静得没有一点声音。',
+      '一只圆滚滚的小机器人飘到你面前，眨了眨蓝色的眼睛，把一颗会发光的星尘放进你的手心。',
       '你漂浮在观景舱的中央，失重让身体前所未有地放松。',
       '想降落到土星的卫星上看看吗？告诉魔毯。',
     ],
@@ -436,9 +436,13 @@ const INTRO_SENTENCES = [
   '微风轻抚你的面颊，天空湛蓝而深远……',
   '魔毯在等待你的心意，你想飞向哪里？',
 ];
-const TRANSITION_SENTENCES = [
-  '魔毯感受到了你的心意……',
-  '它轻轻一颤，缓缓升起，向着你心中的方向飞去……',
+// 过渡语：每次起飞随机换一套，避免生硬重复
+const TRANSITION_VARIANTS = [
+  ['魔毯感受到了你的心意……', '它轻轻一颤，缓缓升起，向着你心中的方向飞去……'],
+  ['好……闭上眼睛。', '风向变了，魔毯正带着你，转向新的方向……'],
+  ['魔毯听见了。', '它微微倾斜，穿过一层薄薄的云，向那里飞去……'],
+  ['嗯，就去那里。', '金色的流苏轻轻扬起，魔毯悄悄加快了一点速度……'],
+  ['魔毯轻轻点了点头。', '看，星星在前方让开了一条路……'],
 ];
 
 /* ── Stars ── */
@@ -684,6 +688,18 @@ function pickAmbient(key) {
   else if (key === 'space' || /月|太空|星|天宫|仙|宇宙|广寒|嫦|空间站|土星|银河/.test(key)) playSpace();
   else if (key === 'sea' || key === 'ocean' || /海|龙宫|深潜|鲸|珊瑚/.test(key)) playOcean();
   else playWind();
+}
+// 换场琶音：几声上行的轻拨，像魔毯扬起流苏
+function transitionChime() {
+  if (musicStyle === 'off') return;
+  const ac = getAC();
+  const g  = ac.createGain();
+  g.gain.value = Math.max(0.0001, 0.5 * ambVol);
+  g.connect(ac.destination);
+  [440, 554.4, 659.3, 880, 1108.7].forEach((f, i) => {
+    setTimeout(() => { try { pluck(g, f, 0.13); } catch (e) {} }, i * 240);
+  });
+  setTimeout(() => { try { g.disconnect(); } catch (e) {} }, 5000);
 }
 // 起飞"呼——"过渡音效（柔化版）：低通扫频，音量克制
 function playWhoosh() {
@@ -1022,7 +1038,7 @@ function renderProgress(sentences, uptoIdx) {
 async function prefetchAll() {
   const jobs = [];
   BLUEPRINTS.forEach(bp => jobs.push({ list: bp.sentences, opts: { emotion: bp.emotion, speed: bp.speed }, bp }));
-  jobs.push({ list: TRANSITION_SENTENCES, opts: {} });
+  TRANSITION_VARIANTS.forEach(v => jobs.push({ list: v, opts: {} }));
   for (const job of jobs) {
     let ok = true;
     for (const s of job.list) {
@@ -1090,7 +1106,9 @@ async function goTo(dest) {
     body:    JSON.stringify({ destination: dest, context: lastJourneyText || undefined }),
   }).then(r => r.json()).catch(() => null);
 
-  await speakSentences(TRANSITION_SENTENCES, { pauseMs: 500 });
+  transitionChime();   // 一段上行的轻盈拨弦，垫在换场的空隙里
+  const trans = TRANSITION_VARIANTS[Math.floor(Math.random() * TRANSITION_VARIANTS.length)];
+  await speakSentences(trans, { pauseMs: 500 });
 
   setPhase('flying');
   const data = await narratePromise;
@@ -1396,6 +1414,6 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   if (finished) { setPhase('listening'); maybeAutoListen(); }
 });
 </script>
-<!-- v8: music style selector (classical/nature/ambient/off) + adjustable pause scale -->
+<!-- v9: protagonist moments in narration + randomized transitions with chime -->
 </body>
 </html>
