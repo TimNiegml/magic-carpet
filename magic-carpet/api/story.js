@@ -140,7 +140,9 @@ function checkConvergence(world, state) {
   return world.convergence.variants.find(v => v.id === map[best]) || world.convergence.variants[0];
 }
 
-// ── 旁白：Claude Sonnet ──
+// ── 旁白：Claude Sonnet（用 --- 分隔正文与选项，避开 JSON 对散文的脆弱性）──
+function cleanText(t) { return String(t || '').replace(/^```(?:json)?/i, '').replace(/```$/,'').trim(); }
+
 async function narrate(world, state, opts, key) {
   const recent = state.world_events.slice(-6).join('\n') || '（风暴前的宁静，故事正要开始）';
   const surfacedTxt = (opts.surfaced || []).map(s => `- ${s.who}：${s.text}${s.twist ? '（这是一个转折，请先埋一处小伏笔、事后回收，让它意外却合乎情理）' : ''}`).join('\n');
@@ -148,7 +150,7 @@ async function narrate(world, state, opts, key) {
 
   const rules =
 `你为一部第二人称互动小说写旁白。基调：${world.tone}
-规则：称呼玩家为"你"；温柔克制、呢喃般的短句；每次一段（约 70~150 字）；把本回合"浮现事件"自然融进叙述，不要罗列；如给了"可回收的伏笔"，择机点破形成"原来如此"的瞬间；不惊吓、不喧哗。`;
+写作要求：称呼玩家为"你"；温柔克制、呢喃般的短句；旁白一段约 70~150 字；把本回合"浮现事件"自然融进叙述，不要罗列；如给了"可回收的伏笔"，择机点破形成"原来如此"的瞬间；不惊吓、不喧哗。`;
 
   let user, wantChoices = true;
   if (opts.ending) {
@@ -157,7 +159,7 @@ async function narrate(world, state, opts, key) {
 `这是故事的结局。走向：《${opts.ending.title}》——${opts.ending.tone}。
 玩家：${world.player_role.who}
 最近发生：\n${recent}
-请写一段收束全篇的结尾旁白，让明线与暗线在此刻交汇落定。只输出 JSON：{"narration":"..."}`;
+请只写一段收束全篇的结尾旁白（不要选项、不要任何解释、不要标题）。`;
   } else {
     user =
 `玩家角色：${world.player_role.who}
@@ -166,25 +168,39 @@ async function narrate(world, state, opts, key) {
 ${surfacedTxt ? '本回合浮现（需自然融入）：\n' + surfacedTxt : ''}
 ${payoff ? '可回收的伏笔（择机点破）：\n' + payoff : ''}
 ${opts.first ? '这是开场：把玩家轻轻带入这座风暴将至的孤岛与灯塔。' : ''}
-写一段旁白，并给出 2~3 个以"你"的行动开头的选项。只输出 JSON：{"narration":"...","choices":["...","...","..."]}`;
+
+严格按以下格式输出，不要 JSON、不要多余解释：
+先写旁白正文（一段）；
+然后另起一行，只写三个减号：---
+然后每行一个选项，共 2~3 行，每行以"你"开头的一个行动。`;
   }
 
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
-      model: ANTHROPIC_MODEL, max_tokens: 700,
+      model: ANTHROPIC_MODEL, max_tokens: 1000,
       system: rules,
       messages: [{ role: 'user', content: user }],
     }),
   });
-  if (!r.ok) throw new Error('anthropic ' + r.status);
+  if (!r.ok) { let d = null; try { d = await r.json(); } catch (e) {} throw new Error('anthropic ' + r.status + (d && d.error ? ' ' + (d.error.message || '') : '')); }
   const data = await r.json();
-  const parsed = safeJson(data?.content?.[0]?.text) || {};
-  return {
-    narration: parsed.narration || '（旁白生成失败，请重试）',
-    choices: wantChoices ? (Array.isArray(parsed.choices) ? parsed.choices.slice(0, 3) : []) : [],
-  };
+  const raw = cleanText((data && data.content ? data.content : []).map(b => b && b.text).filter(Boolean).join('\n'));
+
+  if (!wantChoices) return { narration: raw || '（夜色沉沉，故事在这里静静落幕。）', choices: [] };
+
+  const parts = raw.split(/\n\s*-{3,}\s*\n/);
+  let narration = (parts[0] || raw).trim();
+  let choices = [];
+  if (parts[1]) {
+    choices = parts[1].split('\n')
+      .map(l => l.replace(/^\s*(?:[-*•]|\d+[.)、])\s*/, '').replace(/^["'「]+|["'」]+$/g, '').trim())
+      .filter(Boolean).slice(0, 3);
+  }
+  if (!narration) narration = '（夜风掠过灯塔，你等待着下一刻。）';
+  if (!choices.length) choices = ['你走上前，看得更近些', '你停在原地，静静看着', '你开口，说点什么'];
+  return { narration, choices };
 }
 
 export default async function handler(req, res) {
