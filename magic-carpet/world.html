@@ -13,18 +13,18 @@ html,body{height:100%;background:#0c0b09}
   display:flex;flex-direction:column;align-items:center;padding:38px 22px 120px;position:relative}
 .eyebrow{font-size:10px;letter-spacing:8px;color:#6a5228;font-family:sans-serif;margin-bottom:10px;text-align:center}
 .title{font-size:1.5rem;font-weight:300;color:#c9a84c;letter-spacing:8px;text-align:center;margin-bottom:6px}
-.logline{font-size:11px;color:#6a5228;font-family:sans-serif;letter-spacing:1px;text-align:center;max-width:520px;margin-bottom:24px;line-height:1.8}
-.stage{display:flex;gap:26px;max-width:1000px;width:100%;align-items:flex-start;justify-content:center}
-.left{flex:1;min-width:0;max-width:560px;display:flex;flex-direction:column}
-.right{width:360px;flex-shrink:0}
-.imgframe{width:100%;aspect-ratio:1/1;border:0.5px solid rgba(201,168,76,0.25);border-radius:16px;
-  overflow:hidden;position:relative;background:rgba(255,255,255,0.02)}
-#scene-img{width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1s;display:block}
+.logline{font-size:11px;color:#6a5228;font-family:sans-serif;letter-spacing:1px;text-align:center;max-width:560px;margin-bottom:24px;line-height:1.8}
+.stage{display:flex;gap:30px;max-width:1120px;width:100%;align-items:flex-start;justify-content:center}
+.left{flex:1;min-width:0;max-width:540px;display:flex;flex-direction:column}
+.right{width:480px;flex-shrink:0}
+.imgframe{width:100%;aspect-ratio:1/1;border:0.5px solid rgba(201,168,76,0.28);border-radius:18px;
+  overflow:hidden;position:relative;background:rgba(255,255,255,0.02);box-shadow:0 10px 40px rgba(0,0,0,0.4)}
+#scene-img{width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.1s;display:block}
 #scene-img.show{opacity:1}
 .imgload{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
   color:#6a5228;font-family:sans-serif;font-size:11px;letter-spacing:5px}
 .imgload.on{display:flex;animation:blink 1.6s infinite}
-.imgcap{margin-top:8px;text-align:center;font-size:9px;letter-spacing:2px;color:#5a4a28;font-family:sans-serif}
+.imgcap{margin-top:9px;text-align:center;font-size:9px;letter-spacing:2px;color:#5a4a28;font-family:sans-serif}
 .narration{width:100%;border:0.5px solid rgba(201,168,76,0.2);border-radius:16px;
   padding:28px 30px;line-height:2.1;font-size:1.05rem;font-weight:300;min-height:150px;
   background:rgba(255,255,255,0.018);margin-bottom:20px;transition:opacity .5s;white-space:pre-wrap}
@@ -58,7 +58,7 @@ html,body{height:100%;background:#0c0b09}
 .foot{margin-top:30px;font-size:10px;letter-spacing:1.5px;color:#5a4a28;font-family:sans-serif;text-align:center}
 .thinking{font-size:11px;letter-spacing:4px;color:#6a5228;font-family:sans-serif;text-align:center;margin:0 0 14px;animation:blink 2s infinite}
 @keyframes blink{0%,100%{opacity:.4}50%{opacity:.9}}
-@media(max-width:900px){ .stage{flex-direction:column;align-items:center} .right{width:100%;max-width:560px;order:-1} }
+@media(max-width:920px){ .stage{flex-direction:column;align-items:center} .right{width:100%;max-width:540px;order:-1} .left{max-width:540px} }
 </style>
 </head>
 <body>
@@ -110,54 +110,65 @@ let state = null, busy = false;
 let seed = Math.floor(Math.random()*1e6);
 let surprise = 40, prefetchOn = true, imgOn = true;
 let pf = new Map();
+const ttsCache = new Map();    // 文本 -> Promise<blob|null>（选项/句子语音预取）
+const imgCache = new Map();    // 提示词 -> Promise<url|null>（下一幕图预取）
 
 $('surprise').addEventListener('input', e => { surprise = +e.target.value; $('surprise-val').textContent = surprise; if (state) state.params.surprise = surprise; });
 $('prefetch').addEventListener('change', e => { prefetchOn = e.target.checked; if (!prefetchOn) clearPrefetch(); });
 $('imgon').addEventListener('change', e => { imgOn = e.target.checked; });
-
 function setThinking(on){ $('thinking').style.display = on ? 'block' : 'none'; }
 function showSeed(){ $('seed-label').textContent = '种子 #' + seed; }
 
-// ── 顺序音频：先读"你选的那句"，再读旁白 ──
+// ── 语音：预取 + 分句流水线（首句合成好即播，后面边播边取）──
+function ensureTTS(text){
+  if (!text) return Promise.resolve(null);
+  if (!ttsCache.has(text)) ttsCache.set(text,
+    fetch('/api/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text }) })
+      .then(r => r.ok ? r.blob() : null).catch(()=>null));
+  return ttsCache.get(text);
+}
+function splitSentences(t){ return String(t||'').split(/(?<=[。！？…\n])/).map(s=>s.trim()).filter(Boolean); }
+
 let audio = null, queue = [], draining = false;
 function stopAudio(){ queue = []; if (audio){ try{ audio.pause(); }catch(e){} audio = null; } }
-function enqueueTTS(text){ if (!text) return; queue.push(text); if (!draining) drain(); }
+function enqueue(text){ if (text) { queue.push(text); if (!draining) drain(); } }
+function enqueueNarration(text){ splitSentences(text).forEach(s => queue.push(s)); if (!draining) drain(); }
+function playBlob(blob){ return new Promise(res => { audio = new Audio(URL.createObjectURL(blob)); audio.onended = res; audio.onerror = res; audio.play().catch(res); }); }
 async function drain(){
   draining = true;
   while (queue.length){
     const t = queue.shift();
-    await new Promise(async res => {
-      try{
-        const r = await fetch('/api/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text: t }) });
-        if (!r.ok) return res();
-        audio = new Audio(URL.createObjectURL(await r.blob()));
-        audio.onended = res; audio.onerror = res; audio.play().catch(res);
-      }catch(e){ res(); }
-    });
+    const cur = ensureTTS(t);
+    if (queue.length) ensureTTS(queue[0]);   // 流水线：提前取下一句
+    const blob = await cur;
+    if (blob) await playBlob(blob);
   }
   draining = false;
 }
 
-// ── 配图：换幕/开场/结局才请求（异步，不阻塞玩法）──
-async function fetchImage(prompt){
+// ── 配图：同一幕三选项对应同一张图 → 去重，只预生成一张 ──
+function ensureImage(prompt){
+  if (!imgOn || !prompt) return Promise.resolve(null);
+  if (!imgCache.has(prompt)) imgCache.set(prompt,
+    fetch('/api/image', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt }) })
+      .then(r => r.ok ? r.json() : null).then(d => d && d.url || null).catch(()=>null));
+  return imgCache.get(prompt);
+}
+async function showImage(prompt){
   if (!imgOn || !prompt) return;
   const load = $('imgload'), img = $('scene-img');
   load.classList.add('on');
-  try{
-    const r = await fetch('/api/image', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt }) });
-    const d = await r.json().catch(()=>({}));
-    if (r.ok && d.url){
-      const pre = new Image();
-      pre.onload = () => { img.classList.remove('show'); img.src = d.url; requestAnimationFrame(()=>img.classList.add('show')); load.classList.remove('on'); };
-      pre.onerror = () => load.classList.remove('on');
-      pre.src = d.url;
-    } else { load.classList.remove('on'); }
-  }catch(e){ load.classList.remove('on'); }
+  const url = await ensureImage(prompt);
+  if (!url){ load.classList.remove('on'); return; }
+  const pre = new Image();
+  pre.onload = () => { img.classList.remove('show'); img.src = url; requestAnimationFrame(()=>img.classList.add('show')); load.classList.remove('on'); };
+  pre.onerror = () => load.classList.remove('on');
+  pre.src = url;
 }
 
 function render(data){
   $('narration').style.opacity = 0;
-  setTimeout(()=>{ $('narration').textContent = data.narration; $('narration').style.opacity = 1; }, 180);
+  setTimeout(()=>{ $('narration').textContent = data.narration; $('narration').style.opacity = 1; }, 160);
   const box = $('choices'); box.innerHTML = '';
   if (data.done){
     const e = document.createElement('div'); e.className='ending';
@@ -171,15 +182,16 @@ function render(data){
       b.innerHTML = '<span class="rdy"></span>' + c;
       b.onclick = () => step(c);
       box.appendChild(b);
+      ensureTTS(c);                 // ① 预取选项语音，点下去瞬间就读
     });
     $('type-row').style.display = 'flex';
     startPrefetch(data.choices || []);
   }
-  enqueueTTS(data.narration);
-  if (data.image_prompt) fetchImage(data.image_prompt);
+  enqueueNarration(data.narration); // 分句流水线朗读旁白
+  if (data.image_prompt) showImage(data.image_prompt);
 }
 
-// ── 预生成：三选项并行预取，点中秒出 ──
+// ── 预生成：三选项下一回合并行预取；顺带把（去重后的）下一幕图也预生成 ──
 function clearPrefetch(){ for (const {controller} of pf.values()){ try{ controller.abort(); }catch(e){} } pf = new Map(); }
 function startPrefetch(choices){
   clearPrefetch();
@@ -190,7 +202,14 @@ function startPrefetch(choices){
     const promise = fetch('/api/story', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ state: JSON.parse(snap), choice: c }), signal: controller.signal })
       .then(r => r.ok ? r.json() : null).catch(()=>null)
-      .then(d => { if (d){ const el = document.querySelector('.choice[data-c="'+CSS.escape(c)+'"]'); if (el) el.classList.add('ready'); } return d; });
+      .then(d => {
+        if (d){
+          const el = document.querySelector('.choice[data-c="'+CSS.escape(c)+'"]'); if (el) el.classList.add('ready');
+          if (d.image_prompt) ensureImage(d.image_prompt);   // ② 下一幕图预取（imgCache 去重，实际只画一张）
+          if (d.narration) splitSentences(d.narration).slice(0,1).forEach(s => ensureTTS(s)); // 预取首句语音
+        }
+        return d;
+      });
     pf.set(c, { promise, controller });
   });
 }
@@ -211,7 +230,7 @@ async function start(){ stopAudio(); await callStory({ world_id:'storm-lighthous
 async function step(choice){
   if (busy || !state) return;
   stopAudio();
-  enqueueTTS(choice);
+  enqueue(choice);              // 先读"你选的那句"（多为已预取，秒响）
   const hit = pf.get(choice);
   for (const [c,{controller}] of pf.entries()){ if (c !== choice){ try{ controller.abort(); }catch(e){} } }
   if (hit){
