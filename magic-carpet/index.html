@@ -334,6 +334,10 @@ html,body{height:100%;background:#0c0b09}
     <div class="set-label"><span>句间停顿</span><span id="pause-val">100%</span></div>
     <input type="range" id="pause-scale" min="40" max="220" value="100">
   </div>
+  <div class="set-row">
+    <div class="set-label"><span>故事感（左：静观体验 · 右：主角剧情）</span><span id="story-val">50%</span></div>
+    <input type="range" id="story-level" min="0" max="100" value="50">
+  </div>
   <div class="set-row set-toggle">
     <div class="set-label"><span>自动聆听（说完旁白自动开麦）</span></div>
     <input type="checkbox" id="auto-listen-toggle" checked>
@@ -872,6 +876,17 @@ function renderStyles() {
 }
 renderStyles();
 
+let storyLevel = 50;
+try { storyLevel = Math.max(0, Math.min(100, parseInt(localStorage.getItem('mc-story') || '50', 10))); } catch (e) {}
+const storyEl = document.getElementById('story-level');
+storyEl.value = storyLevel;
+document.getElementById('story-val').textContent = storyLevel + '%';
+storyEl.addEventListener('input', () => {
+  storyLevel = parseInt(storyEl.value, 10);
+  document.getElementById('story-val').textContent = storyLevel + '%';
+  try { localStorage.setItem('mc-story', String(storyLevel)); } catch (e) {}
+});
+
 const pauseEl = document.getElementById('pause-scale');
 pauseEl.value = Math.round(pauseScale * 100);
 document.getElementById('pause-val').textContent = Math.round(pauseScale * 100) + '%';
@@ -1152,7 +1167,7 @@ async function goTo(dest) {
   const narratePromise = fetch('/api/narrate', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ destination: dest, context: lastJourneyText || undefined }),
+    body:    JSON.stringify({ destination: dest, context: lastJourneyText || undefined, story: storyLevel }),
   }).then(r => r.json()).catch(() => null);
 
   transitionChime();   // 一段上行的轻盈拨弦，垫在换场的空隙里
@@ -1465,6 +1480,6 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   if (finished) { setPhase('listening'); maybeAutoListen(); }
 });
 </script>
-<!-- v10.1: mix rebalance - harp forward, noise/pad down, music from the very start -->
+<!-- v11: story-level slider (experiential <-> protagonist narrative) -->
 </body>
 </html>
