@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   const prompt = (req.body && req.body.prompt || '').toString().trim();
   if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
-  const model = process.env.VOLC_ARK_MODEL || 'doubao-seedream-4-0';
+  const model = process.env.VOLC_ARK_MODEL || 'doubao-seedream-4-0-250828';
   const size  = process.env.IMAGE_SIZE || '1024x1024';
 
   try {
