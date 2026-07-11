@@ -576,8 +576,52 @@ const STYLE_CFG = {
 function styleCfg() { return STYLE_CFG[musicStyle] || STYLE_CFG.classical; }
 let lastAmbientKey = null;
 
-// 拨弦音（竖琴/古筝质感）：三角波 + 快起音长衰减
+/* ── 真实乐器采样：竖琴 + 八音盒（FluidR3 音源，MIT 协议）
+   自托管于 /samples/，就近音高变速播放；未加载完成时退回合成拨弦 ── */
+const SAMPLE_DEFS = {
+  harp:     { base: '/samples/harp/',     notes: { 220: 'A3', 261.63: 'C4', 329.63: 'E4', 392: 'G4', 440: 'A4', 523.25: 'C5', 659.26: 'E5', 783.99: 'G5', 880: 'A5', 1046.5: 'C6' } },
+  musicbox: { base: '/samples/musicbox/', notes: { 523.25: 'C5', 659.26: 'E5', 783.99: 'G5', 1046.5: 'C6', 1318.5: 'E6' } },
+};
+const sampleBufs = { harp: {}, musicbox: {} };
+let samplesReady = false;
+let pluckInstrument = 'harp';
+async function loadSamples() {
+  const ac = getAC();
+  const jobs = [];
+  for (const inst in SAMPLE_DEFS) {
+    const def = SAMPLE_DEFS[inst];
+    Object.keys(def.notes).forEach(f => {
+      jobs.push(
+        fetch(def.base + def.notes[f] + '.mp3')
+          .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.arrayBuffer(); })
+          .then(b => ac.decodeAudioData(b))
+          .then(buf => { sampleBufs[inst][f] = buf; })
+          .catch(() => {})
+      );
+    });
+  }
+  await Promise.all(jobs);
+  samplesReady = Object.keys(sampleBufs.harp).length >= 5;
+}
+function playSample(inst, freq, vol, bus) {
+  const bank = sampleBufs[inst] && Object.keys(sampleBufs[inst]).length ? sampleBufs[inst] : sampleBufs.harp;
+  let bestF = 0, bestD = Infinity;
+  for (const f in bank) { const d = Math.abs(Math.log(freq / f)); if (d < bestD) { bestD = d; bestF = f; } }
+  if (!bestF) return false;
+  const ac  = getAC();
+  const src = ac.createBufferSource();
+  src.buffer = bank[bestF];
+  src.playbackRate.value = freq / bestF;
+  const g = ac.createGain();
+  g.gain.value = vol * 3.0;   // 采样响度比合成音低，抬一档
+  src.connect(g); g.connect(bus);
+  src.onended = () => { try { g.disconnect(); } catch (e) {} };
+  src.start();
+  return true;
+}
+// 拨弦音：优先真实采样，未加载完退回合成三角波
 function pluck(bus, freq, vol) {
+  if (samplesReady && playSample(pluckInstrument, freq, vol, bus)) return;
   const ac = getAC();
   const o = ac.createOscillator(); o.type = 'triangle'; o.frequency.value = freq;
   const g = ac.createGain();
@@ -616,6 +660,7 @@ function burble(bus, lvl) {
 // 天空/御风：风声 + 明亮五声琶音（轻盈）
 function playWind() {
   if (musicStyle === 'off') return;
+  pluckInstrument = 'harp';
   const S = styleCfg();
   const bus = ambientBus(0.16, 3);
   pad(bus, [110, 164.8, 220, 329.6], 0.09 * S.pad);
@@ -625,6 +670,7 @@ function playWind() {
 // 海洋：浪的涌动 + 低音偶尔轻拨
 function playOcean() {
   if (musicStyle === 'off') return;
+  pluckInstrument = 'harp';
   const S = styleCfg();
   const bus = ambientBus(0.16, 3.5);
   pad(bus, [82.4, 123.5, 164.8, 246.9], 0.11 * S.pad);
@@ -634,6 +680,7 @@ function playOcean() {
 // 星空：清冷微光 + 极稀疏的高音星子
 function playSpace() {
   if (musicStyle === 'off') return;
+  pluckInstrument = 'musicbox';   // 星空/月宫：八音盒
   const S = styleCfg();
   const bus = ambientBus(0.11, 4);
   pad(bus, [130.8, 196, 261.6, 392, 523.3], 0.09 * S.pad);
@@ -642,6 +689,7 @@ function playSpace() {
 // 溪流/泉水：潺潺水声 + 高音轻拨
 function playStream() {
   if (musicStyle === 'off') return;
+  pluckInstrument = 'harp';
   const S = styleCfg();
   const bus = ambientBus(0.16, 2.5);
   pad(bus, [146.8, 220, 293.7], 0.07 * S.pad);
@@ -651,6 +699,7 @@ function playStream() {
 // 沙漠：空旷的风 + 稀疏驼铃般的轻拨
 function playDesert() {
   if (musicStyle === 'off') return;
+  pluckInstrument = 'harp';
   const S = styleCfg();
   const bus = ambientBus(0.15, 3);
   pad(bus, [73.4, 110, 146.8, 220], 0.09 * S.pad);
@@ -1404,6 +1453,7 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   getAC().resume && getAC().resume();
 
   prefetchAll();   // 后台静默预取，不阻塞开场
+  loadSamples();   // 后台加载竖琴/八音盒采样，加载完自动替换合成音
 
   setPhase('speaking');
   renderProgress(INTRO_SENTENCES, -1);
@@ -1414,6 +1464,6 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   if (finished) { setPhase('listening'); maybeAutoListen(); }
 });
 </script>
-<!-- v9: protagonist moments in narration + randomized transitions with chime -->
+<!-- v10: real instrument samples (harp/musicbox, FluidR3) with synth fallback -->
 </body>
 </html>
