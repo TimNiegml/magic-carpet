@@ -202,6 +202,14 @@ html,body{height:100%;background:#0c0b09}
 .voice-try:hover{color:#c9a84c;border-color:#c9a84c}
 .set-toggle{display:flex;align-items:center;justify-content:space-between}
 .set-toggle input{accent-color:#c9a84c;width:16px;height:16px;cursor:pointer}
+.style-opts{display:flex;gap:6px;flex-wrap:wrap}
+.style-opt{
+  padding:5px 12px;border-radius:14px;font-size:11px;cursor:pointer;
+  color:#9a8048;font-family:sans-serif;letter-spacing:1px;
+  border:0.5px solid rgba(154,128,72,0.3);background:rgba(154,128,72,0.05);transition:all 0.2s
+}
+.style-opt:hover{background:rgba(154,128,72,0.15)}
+.style-opt.sel{color:#c9a84c;border-color:#c9a84c;background:rgba(201,168,76,0.15)}
 
 /* ── Toast（错误提示）── */
 #toast{
@@ -317,6 +325,14 @@ html,body{height:100%;background:#0c0b09}
   <div class="set-row">
     <div class="set-label"><span>旁白人声</span><span id="vol-voice-val">100%</span></div>
     <input type="range" id="vol-voice" min="0" max="100" value="100">
+  </div>
+  <div class="set-row">
+    <div class="set-label"><span>音乐风格</span></div>
+    <div class="style-opts" id="style-opts"></div>
+  </div>
+  <div class="set-row">
+    <div class="set-label"><span>句间停顿</span><span id="pause-val">100%</span></div>
+    <input type="range" id="pause-scale" min="40" max="220" value="100">
   </div>
   <div class="set-row set-toggle">
     <div class="set-label"><span>自动聆听（说完旁白自动开麦）</span></div>
@@ -547,6 +563,15 @@ function airNoise(bus, cutoff, lvl, lfoRate) {
   src.connect(f); f.connect(g); g.connect(bus);
   src.start(); activeNodes.push(src);
 }
+// 音乐风格系数：pad=和弦铺底 noise=自然音效 arp=拨弦琶音 gap=琶音间隔
+const STYLE_CFG = {
+  classical: { pad: 0.55, noise: 0.8, arp: 1.5, gap: 0.55 },   // 轻盈古典：琶音为主
+  nature:    { pad: 0.30, noise: 1.5, arp: 0.7, gap: 1.2 },    // 自然之声：风浪水为主
+  ambient:   { pad: 1.40, noise: 1.0, arp: 0,   gap: 1 },      // 纯氛围：铺底为主
+};
+function styleCfg() { return STYLE_CFG[musicStyle] || STYLE_CFG.classical; }
+let lastAmbientKey = null;
+
 // 拨弦音（竖琴/古筝质感）：三角波 + 快起音长衰减
 function pluck(bus, freq, vol) {
   const ac = getAC();
@@ -586,43 +611,55 @@ function burble(bus, lvl) {
 }
 // 天空/御风：风声 + 明亮五声琶音（轻盈）
 function playWind() {
+  if (musicStyle === 'off') return;
+  const S = styleCfg();
   const bus = ambientBus(0.16, 3);
-  pad(bus, [110, 164.8, 220, 329.6], 0.09);
-  airNoise(bus, 240, 0.11, 0.05);
-  arp(bus, [440, 493.9, 554.4, 659.3, 740], 2200, 5000, 0.12);
+  pad(bus, [110, 164.8, 220, 329.6], 0.09 * S.pad);
+  airNoise(bus, 240, 0.11 * S.noise, 0.05);
+  if (S.arp) arp(bus, [440, 493.9, 554.4, 659.3, 740], 2200 * S.gap, 5000 * S.gap, 0.12 * S.arp);
 }
 // 海洋：浪的涌动 + 低音偶尔轻拨
 function playOcean() {
+  if (musicStyle === 'off') return;
+  const S = styleCfg();
   const bus = ambientBus(0.16, 3.5);
-  pad(bus, [82.4, 123.5, 164.8, 246.9], 0.11);
-  airNoise(bus, 140, 0.17, 0.07);
-  arp(bus, [220, 246.9, 293.7, 329.6], 3500, 7000, 0.08);
+  pad(bus, [82.4, 123.5, 164.8, 246.9], 0.11 * S.pad);
+  airNoise(bus, 140, 0.17 * S.noise, 0.07);
+  if (S.arp) arp(bus, [220, 246.9, 293.7, 329.6], 3500 * S.gap, 7000 * S.gap, 0.08 * S.arp);
 }
 // 星空：清冷微光 + 极稀疏的高音星子
 function playSpace() {
+  if (musicStyle === 'off') return;
+  const S = styleCfg();
   const bus = ambientBus(0.11, 4);
-  pad(bus, [130.8, 196, 261.6, 392, 523.3], 0.09);
-  arp(bus, [1046.5, 1174.7, 1318.5, 1568], 4000, 8500, 0.05);
+  pad(bus, [130.8, 196, 261.6, 392, 523.3], 0.09 * S.pad);
+  if (S.arp) arp(bus, [1046.5, 1174.7, 1318.5, 1568], 4000 * S.gap, 8500 * S.gap, 0.05 * S.arp);
 }
 // 溪流/泉水：潺潺水声 + 高音轻拨
 function playStream() {
+  if (musicStyle === 'off') return;
+  const S = styleCfg();
   const bus = ambientBus(0.16, 2.5);
-  pad(bus, [146.8, 220, 293.7], 0.07);
-  burble(bus, 0.10);
-  arp(bus, [587.3, 659.3, 784, 880], 2800, 6000, 0.09);
+  pad(bus, [146.8, 220, 293.7], 0.07 * S.pad);
+  burble(bus, 0.10 * S.noise);
+  if (S.arp) arp(bus, [587.3, 659.3, 784, 880], 2800 * S.gap, 6000 * S.gap, 0.09 * S.arp);
 }
 // 沙漠：空旷的风 + 稀疏驼铃般的轻拨
 function playDesert() {
+  if (musicStyle === 'off') return;
+  const S = styleCfg();
   const bus = ambientBus(0.15, 3);
-  pad(bus, [73.4, 110, 146.8, 220], 0.09);
-  airNoise(bus, 420, 0.10, 0.04);
-  arp(bus, [293.7, 349.2, 440, 523.3], 3000, 6500, 0.09);
+  pad(bus, [73.4, 110, 146.8, 220], 0.09 * S.pad);
+  airNoise(bus, 420, 0.10 * S.noise, 0.04);
+  if (S.arp) arp(bus, [293.7, 349.2, 440, 523.3], 3000 * S.gap, 6500 * S.gap, 0.09 * S.arp);
 }
 // 打斗/紧张：小二度摩擦音 + 心跳般的低鼓
 function playBattle() {
+  if (musicStyle === 'off') return;
+  const S = styleCfg();
   const bus = ambientBus(0.15, 1.5);
-  pad(bus, [98, 103.8, 146.8, 196], 0.11);
-  airNoise(bus, 300, 0.07, 0.12);
+  pad(bus, [98, 103.8, 146.8, 196], 0.11 * S.pad);
+  airNoise(bus, 300, 0.07 * S.noise, 0.12);
   const ac = getAC();
   const drum = () => {
     if (ambMaster !== bus) return;   // 场景已切换，停止心跳
@@ -640,6 +677,7 @@ function playBattle() {
   setTimeout(drum, 600);
 }
 function pickAmbient(key) {
+  lastAmbientKey = key;
   if (key === 'battle' || /打斗|战斗|激战|妖|魔王|决斗|追逐|风暴|雷电|龙卷|危机|紧张/.test(key)) playBattle();
   else if (key === 'desert' || /沙漠|大漠|戈壁|绿洲|驼铃|撒哈拉|敦煌/.test(key)) playDesert();
   else if (key === 'stream' || /溪|泉|流水|瀑布|河|涧/.test(key)) playStream();
@@ -733,6 +771,49 @@ volVoiceEl.addEventListener('input', () => {
   voiceVol = volVoiceEl.value / 100;
   document.getElementById('vol-voice-val').textContent = volVoiceEl.value + '%';
   try { localStorage.setItem('mc-vol-voice', String(voiceVol)); } catch (e) {}
+});
+
+/* ── 音乐风格 & 句间停顿 ── */
+let musicStyle = 'classical';
+try { musicStyle = localStorage.getItem('mc-music-style') || 'classical'; } catch (e) {}
+let pauseScale = 1;
+try { pauseScale = Math.min(2.2, Math.max(0.4, parseFloat(localStorage.getItem('mc-pause') || '1'))); } catch (e) {}
+
+const MUSIC_STYLES = [
+  { id: 'classical', name: '轻盈古典' },
+  { id: 'nature',    name: '自然之声' },
+  { id: 'ambient',   name: '纯氛围' },
+  { id: 'off',       name: '关闭音乐' },
+];
+const styleOptsEl = document.getElementById('style-opts');
+function renderStyles() {
+  styleOptsEl.innerHTML = '';
+  MUSIC_STYLES.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'style-opt' + (s.id === musicStyle ? ' sel' : '');
+    el.textContent = s.name;
+    el.onclick = () => {
+      musicStyle = s.id;
+      try { localStorage.setItem('mc-music-style', musicStyle); } catch (e) {}
+      renderStyles();
+      // 立即用新风格重建当前场景的音乐
+      if (lastAmbientKey !== null || musicStyle === 'off') {
+        stopAmbient();
+        if (musicStyle !== 'off' && lastAmbientKey !== null) pickAmbient(lastAmbientKey);
+      }
+    };
+    styleOptsEl.appendChild(el);
+  });
+}
+renderStyles();
+
+const pauseEl = document.getElementById('pause-scale');
+pauseEl.value = Math.round(pauseScale * 100);
+document.getElementById('pause-val').textContent = Math.round(pauseScale * 100) + '%';
+pauseEl.addEventListener('input', () => {
+  pauseScale = pauseEl.value / 100;
+  document.getElementById('pause-val').textContent = pauseEl.value + '%';
+  try { localStorage.setItem('mc-pause', String(pauseScale)); } catch (e) {}
 });
 
 /* ── 自动聆听开关 ── */
@@ -889,7 +970,7 @@ function pauseFor(ms, token) {
 function speakSentences(sentences, opts = {}) {
   return new Promise(resolve => {
     const token   = ++speakToken;
-    const pauseMs = opts.pauseMs || 600;
+    const pauseMs = (opts.pauseMs || 600) * pauseScale;
     const fetches = new Array(sentences.length).fill(null);
     let warned    = false;
     const ensure  = i => {
@@ -1315,6 +1396,6 @@ document.getElementById('start-btn').addEventListener('click', async () => {
   if (finished) { setPhase('listening'); maybeAutoListen(); }
 });
 </script>
-<!-- v7: voice picker + auto-listen + lighter classical ambient (pluck/arp/stream) + PWA -->
+<!-- v8: music style selector (classical/nature/ambient/off) + adjustable pause scale -->
 </body>
 </html>
