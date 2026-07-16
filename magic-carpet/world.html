@@ -238,7 +238,7 @@ function render(data){
   const box = $('choices'); box.innerHTML = '';
   updateHud(data.hud);
   if (data.done){
-    const e = document.createElement('div'); e.className='ending' + (data.ending && data.ending.id==='dead' ? ' dead' : '');
+    const e = document.createElement('div'); e.className='ending' + (data.ending && (data.ending.id==='dead'||data.ending.id==='A') ? ' dead' : '');
     e.textContent = '· ' + (data.ending?.title || '故事落幕') + ' ·';
     box.appendChild(e);
     $('type-row').style.display = 'none';
@@ -319,11 +319,18 @@ const WORLDS = [
   { id:'storm-lighthouse', title:'潮汐灯塔 · 风暴夜', logline:'风暴将至的孤岛旧灯塔，一艘船正驶向礁石，而今夜每个人都藏着一件事。你被困在这里，成了今夜的关键。' },
   { id:'nie-xiaoqian', title:'兰若寺 · 聂小倩', logline:'荒山古寺，月色如霜。你夜宿于此，一位白衣女子踏月而来——她的温柔里，藏着一桩要命的差事。' },
   { id:'silence-zero', title:'噤声 · 归零（死亡游戏）', logline:'没有门窗的密室，一盏红灯，一面镜子。手腕刺着"第7日"。规则会杀死不守规则的人——你得先弄清规则，才活得过下一次红灯。' },
+  { id:'liars-table', title:'说谎者 · 圆桌（推理）', logline:'密室圆桌，山羊面具的人说：讲故事的人里有且只有一个说谎者，选错一票全员偿命。可越推越不对劲——赢面为什么这么大？' },
 ];
 function setHeader(t,l){ $('hdr-title').textContent=t; $('hdr-logline').textContent=l; document.title=t+' — 魔毯世界'; }
 function updateHud(hud){ const h=$('hud'); if(!hud){ h.classList.remove('on'); h.innerHTML=''; return; }
-  const rules=(hud.discovered||[]).map(r=>'<span class="rule">已知 '+r+'</span>').join('');
-  h.innerHTML='<span class="clk">红灯剩 '+hud.clock+' '+(hud.unit||'')+'</span>'+(rules||'<span class="rule">规则未明</span>'); h.classList.add('on'); }
+  if(hud.mode==='deduction'){
+    const ls=(hud.layers||[]).map(l=>'<span class="rule">已揭 '+l+'</span>').join('');
+    h.innerHTML='<span class="clk">'+hud.phase+'阶段</span><span class="rule">线索 '+hud.clues+'/'+hud.clues_total+'</span>'+ls;
+  } else {
+    const rules=(hud.discovered||[]).map(r=>'<span class="rule">已知 '+r+'</span>').join('');
+    h.innerHTML='<span class="clk">红灯剩 '+hud.clock+' '+(hud.unit||'')+'</span>'+(rules||'<span class="rule">规则未明</span>');
+  }
+  h.classList.add('on'); }
 function chooseWorld(o){ worldId=o.id; setHeader(o.title,o.logline); $('overlay').classList.add('hide'); showSeed(); start(); }
 (function buildPick(){ const w=$('world-pick'); WORLDS.forEach(o=>{ const c=document.createElement('div'); c.className='world-card'; c.innerHTML='<div class="wt">'+o.title+'</div><div class="wl">'+o.logline+'</div>'; c.onclick=()=>chooseWorld(o); w.appendChild(c); }); })();
 showSeed();
