@@ -3,7 +3,7 @@
 
 const STORM_LIGHTHOUSE = {
   id: 'storm-lighthouse',
-  bgm: 'calm',
+  bgm_map: { default: 'Long_Note_Two', act3: 'Echoes_of_Time' },
   title: '潮汐灯塔 · 风暴夜',
   logline: '风暴将至的孤岛旧灯塔，一艘船正驶向礁石，而今夜每个人都藏着一件事。',
   setting: '一座远离大陆的孤岛，岛上只有一座旧灯塔。今夜有大风暴，海图显示一艘货船正朝这片布满暗礁的海域驶来。灯，今晚必须亮。',
@@ -82,7 +82,7 @@ const STORM_LIGHTHOUSE = {
 
 const NIE_XIAOQIAN = {
   id: 'nie-xiaoqian',
-  bgm: 'suspense',
+  bgm_map: { default: 'Echoes_of_Time', act3: 'Anxiety' },
   title: '兰若寺 · 聂小倩',
   logline: '荒山古寺，月色如霜。你夜宿于此，一位白衣女子踏月而来——她的温柔里，藏着一桩要命的差事。',
   setting: '取材自《聊斋志异·聂小倩》。一座荒废的兰若寺，坐落在乱葬岗旁。今夜你借宿于此，同宿的还有一位按剑独坐的剑客。寺后有一株千年枯树，夜里，白衣的女子会踏着月光而来。',
@@ -159,7 +159,7 @@ const NIE_XIAOQIAN = {
 
 const SILENCE_ZERO = {
   id: 'silence-zero',
-  bgm: 'suspense',
+  bgm_map: { default: 'Ossuary_1_A_Beginning', act2: 'Dark_Times', act3: 'Static_Motion' },
   mode: 'dungeon',
   title: '噤声 · 归零',
   logline: '没有门窗的密室，一盏红灯，一面镜子。手腕上刺着"第7日"。墙上血字：规则会杀死不守规则的人。',
@@ -224,7 +224,8 @@ const SILENCE_ZERO = {
 
 const LIARS_TABLE = {
   id: 'liars-table',
-  bgm: 'suspense',
+  bgm_map: { tell: 'Ossuary_1_A_Beginning', probe: 'Dark_Times', vote: 'Anxiety', default: 'Dark_Times' },
+  narrator_voice: 'zh_female_cancan_mars_bigtts',
   mode: 'deduction',
   title: '说谎者 · 圆桌',
   logline: '没有门窗的密室，一张旧圆桌，一座滴答作响的座钟。戴山羊面具的人说：讲故事的人里，有且只有一个说谎者。选错一票，全员偿命。',
@@ -252,28 +253,28 @@ const LIARS_TABLE = {
   resolution: '投给任一"参与者" → 结局A（有人必投错，全员被制裁）；已揭开L1并投"人羊" → 结局B（识破人羊、众人惨活）；已揭开L2并投"人羊"或当众道破"我们其实都已经死了" → 结局C（难以接受的真相）。',
   souls: [
     {
-      name: '沈律', role: '清冷的女律师',
+      name: '沈律', voice: 'zh_female_shuangkuaisisi_emo_v2_mars_bigtts', role: '清冷的女律师',
       story: '地震前正开车去见当事人，途经几处地标，前方地面骤然开裂，她刹停，却被身后避让不及的车连环追尾。',
       secret: '她的车其实被后车顶进了那道地裂里——她死于那场追尾。她也是最先嗅到"说谎者赢面太大、这框架有诈"的人。',
       core_desire: '冷静地看透规则、活着走出去', values: ['逻辑与真相至上', '先怀疑框架，再怀疑人'],
       relationship_to_player_init: '疏离而锐利', opening_mood: '过分的镇定', arc_path: ['质疑框架', '抛出元逻辑', '与你并推', '摊牌']
     },
     {
-      name: '周正', role: '高大的刑警',
+      name: '周正', voice: 'zh_male_beijingxiaoye_emo_v2_mars_bigtts', role: '高大的刑警',
       story: '地震前在车里蹲守一名诈骗嫌犯，同事离开去买烟，他独自盯梢时被人从背后用细线勒住脖颈。',
       secret: '他其实死于那次背后的袭击。出于职业本能，他一直想把众人组织起来"一起活下去"——好意，却是错的方向。',
       core_desire: '把大家组织起来、不让任何人死', values: ['正义与秩序', '团结才有活路'],
       relationship_to_player_init: '想拉你入伙的热切', opening_mood: '强撑的领导欲', arc_path: ['自任领队', '盘问众人', '方向错误', '被点醒或固执']
     },
     {
-      name: '老K', role: '油滑的中年男人（自称做点"生意"）',
+      name: '老K', voice: 'zh_male_shaonianzixin_moon_bigtts', role: '油滑的中年男人（自称做点"生意"）',
       story: '地震前正处理一笔来路不明的钱，回家路上房子剧烈摇晃，他担心屋里的人，冒险冲了进去。',
       secret: '他冲进摇晃的屋子时，门廊塌下把他压死了。他精于甩锅，会把矛头引向别人、甚至引向你。',
       core_desire: '自保，回到还在等他的人身边', values: ['自己活最重要', '乱中甩锅、见风使舵'],
       relationship_to_player_init: '热络里带着算计', opening_mood: '嬉皮笑脸的警觉', arc_path: ['和稀泥', '甩锅', '被识破', '反噬或求饶']
     },
     {
-      name: '小蕊', role: '怯懦的年轻幼师',
+      name: '小蕊', voice: 'zh_female_roumeinvyou_emo_v2_mars_bigtts', role: '怯懦的年轻幼师',
       story: '地震前在路口陪一个没等到家长的孩子，晃动中她抱起孩子躲避，一辆失控的车朝他们冲来。',
       secret: '她抱着孩子躲那辆失控车时被撞死了。她的怯懦下藏着"没能护住孩子"的痛，是情绪最容易被击中的人。',
       core_desire: '护住那个孩子', values: ['孩子第一', '不愿伤害任何人'],

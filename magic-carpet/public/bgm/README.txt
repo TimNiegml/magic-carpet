@@ -1,13 +1,14 @@
-把你的背景音乐放到这个文件夹，文件名要对应世界基调：
+背景音乐（按世界/场景自动切换，前端从 /bgm/<曲名>.mp3 播放）
 
-  suspense.mp3  —— 悬疑基调（副本/推理：噤声·归零、说谎者·圆桌、聂小倩）
-  calm.mp3      —— 清冷基调（潮汐灯塔）
+曲目 → 场景映射（在 api/_worlds.js 的 bgm_map 里配置）：
+  潮汐灯塔    ：Long_Note_Two（常规）/ Echoes_of_Time（高潮）
+  兰若寺·聂小倩：Echoes_of_Time（常规）/ Anxiety（高潮）
+  噤声·归零    ：Ossuary_1_A_Beginning（开场）/ Dark_Times / Static_Motion（高潮）
+  说谎者·圆桌  ：Ossuary_1_A_Beginning（陈述）/ Dark_Times（质询）/ Anxiety（投票）
 
-前端会自动循环播放 /bgm/<基调>.mp3，旁白朗读时自动压低音量，读完回升。
-找不到文件时静默（不影响其他功能）。
+音乐版权 / 署名（CC-BY 4.0，必须保留署名）：
+  以下曲目 by Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0
+  Anxiety / Dark Times / Echoes of Time / Long Note Two / Ossuary 1 - A Beginning / Static Motion
+  http://creativecommons.org/licenses/by/4.0/
 
-免版权可用来源（自用/商用都安全）：
-  - Pixabay Music (pixabay.com/music)  搜 suspense / dark ambient / thriller
-  - Free Music Archive (freemusicarchive.org)  选 CC 许可
-  - YouTube Audio Library
-下载后重命名为 suspense.mp3 / calm.mp3 放进本文件夹，vercel --prod 重新部署即可。
+想换曲子：把新文件放进本文件夹并在 _worlds.js 的 bgm_map 改成对应文件名（不含 .mp3）即可。

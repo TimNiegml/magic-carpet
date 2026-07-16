@@ -48,6 +48,9 @@ html,body{height:100%;background:var(--bg)}
   background:linear-gradient(180deg,rgba(201,168,76,0.045),rgba(255,255,255,0.012));
   box-shadow:0 12px 40px rgba(0,0,0,0.35);margin-bottom:22px;transition:opacity .5s;white-space:pre-wrap}
 .narration::first-letter{font-size:1.5em;color:var(--gold-b)}
+.narration .ln{margin:0 0 7px}
+.narration .ln.spk{color:#dcc78d}
+.narration .ln .who{color:var(--gold-b);font-family:sans-serif;font-size:11px;letter-spacing:1px;margin-right:9px;padding:1px 8px;border:1px solid rgba(201,168,76,0.32);border-radius:9px;white-space:nowrap}
 .choices{display:flex;flex-direction:column;gap:11px;width:100%}
 .choice{border:1px solid rgba(154,128,72,0.32);border-radius:11px;padding:15px 20px;cursor:pointer;
   background:linear-gradient(180deg,rgba(154,128,72,0.09),rgba(154,128,72,0.03));color:var(--ink);
@@ -158,7 +161,7 @@ const $ = id => document.getElementById(id);
 let state = null, busy = false;
 let seed = Math.floor(Math.random()*1e6);
 let surprise = 40, prefetchOn = true, imgOn = true;
-let bgmOn = true, bgmVol = 0.35, bgmMood = 'suspense';
+let bgmOn = true, bgmVol = 0.35, curTrack = '';
 let worldId = 'storm-lighthouse';
 let pf = new Map();
 const ttsCache = new Map();
@@ -167,20 +170,29 @@ const imgCache = new Map();
 $('surprise').addEventListener('input', e => { surprise = +e.target.value; $('surprise-val').textContent = surprise; if (state) state.params.surprise = surprise; });
 $('prefetch').addEventListener('change', e => { prefetchOn = e.target.checked; if (!prefetchOn) clearPrefetch(); });
 $('imgon').addEventListener('change', e => { imgOn = e.target.checked; });
-$('bgmon').addEventListener('change', e => { bgmOn = e.target.checked; const a=$('bgm'); if(!bgmOn){ a.pause(); } else { startBgm(bgmMood); } });
+$('bgmon').addEventListener('change', e => { bgmOn = e.target.checked; const a=$('bgm'); if(!bgmOn){ a.pause(); } else if(curTrack){ a.src='/bgm/'+curTrack+'.mp3'; a.dataset.track=curTrack; a.volume=playing?bgmVol*0.28:bgmVol; a.play().catch(()=>{}); } });
 $('bgmvol').addEventListener('input', e => { bgmVol = +e.target.value/100; const a=$('bgm'); if(a && bgmOn) a.volume = playing ? bgmVol*0.28 : bgmVol; });
 function setThinking(on){ $('thinking').style.display = on ? 'block' : 'none'; }
 function showSeed(){ $('seed-label').textContent = '种子 #' + seed; }
 function duck(on){ const a=$('bgm'); if(a){ a.volume = bgmOn ? (on ? bgmVol*0.28 : bgmVol) : 0; } }
-function startBgm(mood){ const a=$('bgm'); if(!a || !bgmOn || !mood) return; if(a.dataset.mood!==mood){ a.src='/bgm/'+mood+'.mp3'; a.dataset.mood=mood; } a.volume=bgmVol; a.play().catch(()=>{}); }
+function setBgm(track){ if(!track) return; const a=$('bgm'); if(a.dataset.track===track){ if(bgmOn && a.paused) a.play().catch(()=>{}); return; } a.dataset.track=track; curTrack=track; if(!bgmOn) return; a.src='/bgm/'+track+'.mp3'; a.volume = playing ? bgmVol*0.28 : bgmVol; a.play().catch(()=>{}); }
 
 // ── 语音：预取 + 分句流水线 + 可取消队列（修复换幕时旁白不发声）──
-function ensureTTS(text){
+function ensureTTS(text, voice){
   if (!text) return Promise.resolve(null);
-  if (!ttsCache.has(text)) ttsCache.set(text,
-    fetch('/api/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text }) })
+  const k = (voice||'') + '|' + text;
+  if (!ttsCache.has(k)) ttsCache.set(k,
+    fetch('/api/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(voice ? { text, voice } : { text }) })
       .then(r => r.ok ? r.blob() : null).catch(()=>null));
-  return ttsCache.get(text);
+  return ttsCache.get(k);
+}
+function esc(t){ return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function scriptHtml(text, voices){
+  return String(text).split('\n').map(l=>l.trim()).filter(Boolean).map(line=>{
+    const m = line.match(/^([^：:]{1,8})[：:]\s*(.+)$/);
+    if (m && m[1]!=='旁白' && voices[m[1]]!==undefined) return '<div class="ln spk"><span class="who">'+esc(m[1])+'</span>'+esc(m[2])+'</div>';
+    return '<div class="ln">'+esc(line.replace(/^旁白[：:]\s*/,''))+'</div>';
+  }).join('');
 }
 function splitSentences(t){ return String(t||'').split(/(?<=[。！？…\n])/).map(s=>s.trim()).filter(Boolean); }
 
@@ -190,17 +202,30 @@ function stopAudio(){
   if (audio){ try{ audio.pause(); }catch(e){} audio = null; }
   if (curResolve){ const r = curResolve; curResolve = null; r(); }   // 解开正在等待的播放，避免队列卡死
 }
-function enqueue(text){ if (text){ queue.push(text); pump(); } }
-function enqueueNarration(text){ splitSentences(text).forEach(s => queue.push(s)); pump(); }
+function enqueue(x){ const it = (typeof x==='string') ? {text:x,voice:null} : x; if (it && it.text){ queue.push(it); pump(); } }
+function enqueueNarration(text){ splitSentences(text).forEach(s => queue.push({text:s,voice:null})); pump(); }
+function enqueueScript(text, voices){
+  String(text).split('\n').map(l=>l.trim()).filter(Boolean).forEach(line=>{
+    const m = line.match(/^([^：:]{1,8})[：:]\s*(.+)$/);
+    if (m && voices[m[1]]!==undefined) queue.push({text:m[2], voice:voices[m[1]]});
+    else { const t=line.replace(/^旁白[：:]\s*/,''); splitSentences(t).forEach(s=>queue.push({text:s,voice:(voices['旁白']||null)})); }
+  });
+  pump();
+}
+function showNarration(data){
+  const box=$('narration'); box.style.opacity=0;
+  setTimeout(()=>{ if(data.voices){ box.innerHTML=scriptHtml(data.narration,data.voices); } else { box.textContent=data.narration; } box.style.opacity=1; },160);
+  if(data.voices) enqueueScript(data.narration, data.voices); else enqueueNarration(data.narration);
+}
 async function pump(){
   if (playing) return;
   playing = true; duck(true);
   try{
     while (queue.length){
       const myGen = gen;
-      const text = queue.shift();
-      const curBlob = ensureTTS(text);
-      if (queue.length) ensureTTS(queue[0]);
+      const it = queue.shift();
+      const curBlob = ensureTTS(it.text, it.voice);
+      if (queue.length) ensureTTS(queue[0].text, queue[0].voice);
       const blob = await curBlob;
       if (myGen !== gen) break;
       if (blob){
@@ -240,8 +265,6 @@ async function showImage(prompt){
 }
 
 function render(data){
-  $('narration').style.opacity = 0;
-  setTimeout(()=>{ $('narration').textContent = data.narration; $('narration').style.opacity = 1; }, 160);
   const box = $('choices'); box.innerHTML = '';
   updateHud(data.hud);
   if (data.done){
@@ -256,13 +279,14 @@ function render(data){
       b.innerHTML = '<span class="rdy"></span>' + c;
       b.onclick = () => step(c);
       box.appendChild(b);
-      ensureTTS(c);
+      ensureTTS(c, null);
     });
     $('type-row').style.display = 'flex';
     startPrefetch(data.choices || []);
   }
-  if (data.world_meta){ setHeader(data.world_meta.title, data.world_meta.logline); if (data.world_meta.bgm){ bgmMood = data.world_meta.bgm; startBgm(bgmMood); } }
-  enqueueNarration(data.narration);
+  if (data.world_meta) setHeader(data.world_meta.title, data.world_meta.logline);
+  if (data.bgm) setBgm(data.bgm);
+  showNarration(data);
   if (data.image_prompt) showImage(data.image_prompt);
 }
 
@@ -280,7 +304,7 @@ function startPrefetch(choices){
         if (d){
           const el = document.querySelector('.choice[data-c="'+CSS.escape(c)+'"]'); if (el) el.classList.add('ready');
           if (d.image_prompt) ensureImage(d.image_prompt);
-          if (d.narration) splitSentences(d.narration).slice(0,1).forEach(s => ensureTTS(s));
+          if (d.narration) splitSentences(d.narration).slice(0,1).forEach(s => ensureTTS(s, null));
         }
         return d;
       });
@@ -323,10 +347,10 @@ $('type-input').addEventListener('keydown', e=>{ if(e.key==='Enter'){ const t=e.
 $('reroll').addEventListener('click', ()=>{ seed = Math.floor(Math.random()*1e6); showSeed(); state=null; clearPrefetch(); start(); });
 $('restart').addEventListener('click', ()=>{ state=null; clearPrefetch(); start(); });
 const WORLDS = [
-  { id:'storm-lighthouse', bgm:'calm', title:'潮汐灯塔 · 风暴夜', logline:'风暴将至的孤岛旧灯塔，一艘船正驶向礁石，而今夜每个人都藏着一件事。你被困在这里，成了今夜的关键。' },
-  { id:'nie-xiaoqian', bgm:'suspense', title:'兰若寺 · 聂小倩', logline:'荒山古寺，月色如霜。你夜宿于此，一位白衣女子踏月而来——她的温柔里，藏着一桩要命的差事。' },
-  { id:'silence-zero', bgm:'suspense', title:'噤声 · 归零（死亡游戏）', logline:'没有门窗的密室，一盏红灯，一面镜子。手腕刺着"第7日"。规则会杀死不守规则的人——你得先弄清规则，才活得过下一次红灯。' },
-  { id:'liars-table', bgm:'suspense', title:'说谎者 · 圆桌（推理）', logline:'密室圆桌，山羊面具的人说：讲故事的人里有且只有一个说谎者，选错一票全员偿命。可越推越不对劲——赢面为什么这么大？' },
+  { id:'storm-lighthouse', bgm:'Long_Note_Two', title:'潮汐灯塔 · 风暴夜', logline:'风暴将至的孤岛旧灯塔，一艘船正驶向礁石，而今夜每个人都藏着一件事。你被困在这里，成了今夜的关键。' },
+  { id:'nie-xiaoqian', bgm:'Echoes_of_Time', title:'兰若寺 · 聂小倩', logline:'荒山古寺，月色如霜。你夜宿于此，一位白衣女子踏月而来——她的温柔里，藏着一桩要命的差事。' },
+  { id:'silence-zero', bgm:'Ossuary_1_A_Beginning', title:'噤声 · 归零（死亡游戏）', logline:'没有门窗的密室，一盏红灯，一面镜子。手腕刺着"第7日"。规则会杀死不守规则的人——你得先弄清规则，才活得过下一次红灯。' },
+  { id:'liars-table', bgm:'Ossuary_1_A_Beginning', title:'说谎者 · 圆桌（推理）', logline:'密室圆桌，山羊面具的人说：讲故事的人里有且只有一个说谎者，选错一票全员偿命。可越推越不对劲——赢面为什么这么大？' },
 ];
 function setHeader(t,l){ $('hdr-title').textContent=t; $('hdr-logline').textContent=l; document.title=t+' — 魔毯世界'; }
 function updateHud(hud){ const h=$('hud'); if(!hud){ h.classList.remove('on'); h.innerHTML=''; return; }
@@ -338,7 +362,7 @@ function updateHud(hud){ const h=$('hud'); if(!hud){ h.classList.remove('on'); h
     h.innerHTML='<span class="clk">红灯剩 '+hud.clock+' '+(hud.unit||'')+'</span>'+(rules||'<span class="rule">规则未明</span>');
   }
   h.classList.add('on'); }
-function chooseWorld(o){ worldId=o.id; bgmMood=o.bgm||bgmMood; setHeader(o.title,o.logline); $('overlay').classList.add('hide'); showSeed(); startBgm(bgmMood); start(); }
+function chooseWorld(o){ worldId=o.id; setHeader(o.title,o.logline); $('overlay').classList.add('hide'); showSeed(); setBgm(o.bgm); start(); }
 (function buildPick(){ const w=$('world-pick'); WORLDS.forEach(o=>{ const c=document.createElement('div'); c.className='world-card'; c.innerHTML='<div class="wt">'+o.title+'</div><div class="wl">'+o.logline+'</div>'; c.onclick=()=>chooseWorld(o); w.appendChild(c); }); })();
 showSeed();
 </script>

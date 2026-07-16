@@ -157,6 +157,14 @@ function sceneFor(world, state, ending, first) {
   return prompt;
 }
 
+// ── 按当前场景/阶段选背景音乐 ──
+function bgmFor(world, state) {
+  const m = world.bgm_map; if (!m) return null;
+  if (world.mode === 'deduction' && state.phase && m[state.phase]) return m[state.phase];
+  const a = 'act' + (state.act || 1); if (m[a]) return m[a];
+  return m.default || null;
+}
+
 // ── 旁白：Claude Sonnet（用 --- 分隔正文与选项，避开 JSON 对散文的脆弱性）──
 function cleanText(t) { return String(t || '').replace(/^```(?:json)?/i, '').replace(/```$/,'').trim(); }
 
@@ -272,8 +280,8 @@ ${surfacedTxt ? '本回合浮现（自然融入）：\n' + surfacedTxt : ''}
 ${opts.first ? '这是开场：把玩家带进这个没有门窗、只有一盏红灯和一面镜子的密室，交代墙上的血字与手腕上的数字，让危险感立刻立起来。' : ''}
 
 严格按格式输出：
-先写旁白正文（一段）；
-另起一行写三个减号：---
+旁白与台词分行写：叙述部分以"旁白："开头；某个角色说话时，用其名字开头（如"沈律：…"、"周正：…"、"老K：…"、"小蕊："），一句一行，便于分别配音；不要把角色台词混进旁白句子里。
+写完这几行后，另起一行写三个减号：---
 若玩家还活着，写 2~3 个以"你"开头、具体且带风险的行动选项，每行一个；若玩家在本段已死亡或逃脱，此处留空。
 再另起一行写三个等号：===
 最后写状态行：STATUS: alive 或 STATUS: dead 或 STATUS: escaped
@@ -422,8 +430,10 @@ export default async function handler(req, res) {
       const phaseName = { tell: '陈述', probe: '质询', vote: '投票' }[state.phase];
       return res.json({
         narration: outX.narration, choices: doneX ? [] : outX.choices, image_prompt: imgX,
-        world_meta: first ? { title: world.title, logline: world.logline, bgm: world.bgm || 'suspense' } : undefined,
+        world_meta: first ? { title: world.title, logline: world.logline } : undefined,
         hud: { mode: 'deduction', phase: phaseName, clues: state.clues.length, clues_total: world.clues.length, layers: state.layers.slice() },
+        voices: (() => { const v = {}; (world.souls || []).forEach(sp => { if (sp.voice) v[sp.name] = sp.voice; }); if (world.narrator_voice) v['旁白'] = world.narrator_voice; return v; })(),
+        bgm: bgmFor(world, state),
         state, done: doneX, ending: endX,
       });
     }
@@ -444,8 +454,9 @@ export default async function handler(req, res) {
         narration: outD.narration,
         choices: doneD ? [] : outD.choices,
         image_prompt: imgD,
-        world_meta: first ? { title: world.title, logline: world.logline, bgm: world.bgm || 'suspense' } : undefined,
+        world_meta: first ? { title: world.title, logline: world.logline } : undefined,
         hud: { clock: state.clock, unit: world.countdown.unit, discovered: state.discovered.slice() },
+        bgm: bgmFor(world, state),
         state, done: doneD, ending: endD,
       });
     }
@@ -460,7 +471,8 @@ export default async function handler(req, res) {
       narration: out.narration,
       choices: out.choices,
       image_prompt,
-      world_meta: first ? { title: world.title, logline: world.logline, bgm: world.bgm || 'suspense' } : undefined,
+      world_meta: first ? { title: world.title, logline: world.logline } : undefined,
+      bgm: bgmFor(world, state),
       state,
       done: !!ending,
       ending: ending ? { id: ending.id, title: ending.title } : null,
