@@ -95,6 +95,12 @@ html,body{height:100%;background:var(--bg)}
 .world-card:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:0 14px 34px rgba(0,0,0,0.45)}
 .world-card .wt{font-size:1.02rem;color:var(--gold);letter-spacing:3px;margin-bottom:9px}
 .world-card .wl{font-size:11px;color:var(--ink-dim);font-family:sans-serif;line-height:1.75}
+#hud{display:none;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap;margin:-6px 0 16px;
+  font-family:sans-serif;font-size:11px;letter-spacing:1px;color:var(--gold-dim)}
+#hud.on{display:flex}
+#hud .clk{color:var(--gold-b);font-family:'Cinzel',serif;letter-spacing:2px}
+#hud .rule{border:1px solid rgba(154,128,72,0.35);border-radius:12px;padding:3px 10px;color:var(--ink-dim)}
+.ending.dead{color:#c96b5c;text-shadow:0 2px 22px rgba(201,90,70,0.35)}
 @media(max-width:920px){ .stage{flex-direction:column;align-items:center} .right{width:100%;max-width:540px;order:-1} .left{max-width:540px} }
 </style>
 </head>
@@ -107,6 +113,7 @@ html,body{height:100%;background:var(--bg)}
   <div class="logline" id="hdr-logline">选择一个世界，开始今夜。</div>
   <div class="stage">
     <div class="left">
+      <div id="hud"></div>
       <div class="narration" id="narration">铺开你的魔毯……</div>
       <div id="thinking" class="thinking" style="display:none">THE WORLD WHISPERS</div>
       <div class="choices" id="choices"></div>
@@ -229,8 +236,9 @@ function render(data){
   $('narration').style.opacity = 0;
   setTimeout(()=>{ $('narration').textContent = data.narration; $('narration').style.opacity = 1; }, 160);
   const box = $('choices'); box.innerHTML = '';
+  updateHud(data.hud);
   if (data.done){
-    const e = document.createElement('div'); e.className='ending';
+    const e = document.createElement('div'); e.className='ending' + (data.ending && data.ending.id==='dead' ? ' dead' : '');
     e.textContent = '· ' + (data.ending?.title || '故事落幕') + ' ·';
     box.appendChild(e);
     $('type-row').style.display = 'none';
@@ -310,8 +318,12 @@ $('restart').addEventListener('click', ()=>{ state=null; clearPrefetch(); start(
 const WORLDS = [
   { id:'storm-lighthouse', title:'潮汐灯塔 · 风暴夜', logline:'风暴将至的孤岛旧灯塔，一艘船正驶向礁石，而今夜每个人都藏着一件事。你被困在这里，成了今夜的关键。' },
   { id:'nie-xiaoqian', title:'兰若寺 · 聂小倩', logline:'荒山古寺，月色如霜。你夜宿于此，一位白衣女子踏月而来——她的温柔里，藏着一桩要命的差事。' },
+  { id:'silence-zero', title:'噤声 · 归零（死亡游戏）', logline:'没有门窗的密室，一盏红灯，一面镜子。手腕刺着"第7日"。规则会杀死不守规则的人——你得先弄清规则，才活得过下一次红灯。' },
 ];
 function setHeader(t,l){ $('hdr-title').textContent=t; $('hdr-logline').textContent=l; document.title=t+' — 魔毯世界'; }
+function updateHud(hud){ const h=$('hud'); if(!hud){ h.classList.remove('on'); h.innerHTML=''; return; }
+  const rules=(hud.discovered||[]).map(r=>'<span class="rule">已知 '+r+'</span>').join('');
+  h.innerHTML='<span class="clk">红灯剩 '+hud.clock+' '+(hud.unit||'')+'</span>'+(rules||'<span class="rule">规则未明</span>'); h.classList.add('on'); }
 function chooseWorld(o){ worldId=o.id; setHeader(o.title,o.logline); $('overlay').classList.add('hide'); showSeed(); start(); }
 (function buildPick(){ const w=$('world-pick'); WORLDS.forEach(o=>{ const c=document.createElement('div'); c.className='world-card'; c.innerHTML='<div class="wt">'+o.title+'</div><div class="wl">'+o.logline+'</div>'; c.onclick=()=>chooseWorld(o); w.appendChild(c); }); })();
 showSeed();
