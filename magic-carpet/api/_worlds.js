@@ -3,6 +3,7 @@
 
 const STORM_LIGHTHOUSE = {
   id: 'storm-lighthouse',
+  bgm: 'calm',
   title: '潮汐灯塔 · 风暴夜',
   logline: '风暴将至的孤岛旧灯塔，一艘船正驶向礁石，而今夜每个人都藏着一件事。',
   setting: '一座远离大陆的孤岛，岛上只有一座旧灯塔。今夜有大风暴，海图显示一艘货船正朝这片布满暗礁的海域驶来。灯，今晚必须亮。',
@@ -81,6 +82,7 @@ const STORM_LIGHTHOUSE = {
 
 const NIE_XIAOQIAN = {
   id: 'nie-xiaoqian',
+  bgm: 'suspense',
   title: '兰若寺 · 聂小倩',
   logline: '荒山古寺，月色如霜。你夜宿于此，一位白衣女子踏月而来——她的温柔里，藏着一桩要命的差事。',
   setting: '取材自《聊斋志异·聂小倩》。一座荒废的兰若寺，坐落在乱葬岗旁。今夜你借宿于此，同宿的还有一位按剑独坐的剑客。寺后有一株千年枯树，夜里，白衣的女子会踏着月光而来。',
@@ -157,6 +159,7 @@ const NIE_XIAOQIAN = {
 
 const SILENCE_ZERO = {
   id: 'silence-zero',
+  bgm: 'suspense',
   mode: 'dungeon',
   title: '噤声 · 归零',
   logline: '没有门窗的密室，一盏红灯，一面镜子。手腕上刺着"第7日"。墙上血字：规则会杀死不守规则的人。',
@@ -221,6 +224,7 @@ const SILENCE_ZERO = {
 
 const LIARS_TABLE = {
   id: 'liars-table',
+  bgm: 'suspense',
   mode: 'deduction',
   title: '说谎者 · 圆桌',
   logline: '没有门窗的密室，一张旧圆桌，一座滴答作响的座钟。戴山羊面具的人说：讲故事的人里，有且只有一个说谎者。选错一票，全员偿命。',
