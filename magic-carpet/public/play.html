@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>潮汐灯塔 · 风暴夜 — 魔毯世界</title>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Noto+Serif+SC:wght@300;400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Noto+Serif+SC:wght@300;400;600&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Noto+Serif+SC:wght@300;400;600&display=swap"></noscript>
 <style>
 :root{
   --bg:#0a0806; --bg2:#171009;
@@ -17,7 +18,7 @@ html,body{height:100%;background:var(--bg)}
   background:radial-gradient(ellipse 90% 70% at 50% 32%, transparent 46%, rgba(0,0,0,0.5) 100%)}
 #app{position:relative;z-index:2;min-height:100vh;
   background:radial-gradient(1000px 520px at 50% -8%, #1d1409, var(--bg) 70%);
-  font-family:'Noto Serif SC',Georgia,serif;color:var(--ink);
+  font-family:'Noto Serif SC','Songti SC','SimSun',Georgia,serif;color:var(--ink);
   display:flex;flex-direction:column;align-items:center;padding:44px 22px 122px}
 .eyebrow{font-family:'Cinzel',serif;font-size:12px;letter-spacing:11px;color:var(--gold-dim);
   margin-bottom:14px;text-align:center;text-indent:11px}
@@ -54,7 +55,7 @@ html,body{height:100%;background:var(--bg)}
 .choices{display:flex;flex-direction:column;gap:11px;width:100%}
 .choice{border:1px solid rgba(154,128,72,0.32);border-radius:11px;padding:15px 20px;cursor:pointer;
   background:linear-gradient(180deg,rgba(154,128,72,0.09),rgba(154,128,72,0.03));color:var(--ink);
-  font-family:'Noto Serif SC',serif;font-size:15px;letter-spacing:1px;text-align:left;position:relative;
+  font-family:'Noto Serif SC','Songti SC','SimSun',serif;font-size:15px;letter-spacing:1px;text-align:left;position:relative;
   transition:all .22s;overflow:hidden}
 .choice:hover{border-color:var(--gold);background:linear-gradient(180deg,rgba(201,168,76,0.2),rgba(154,128,72,0.06));
   transform:translateX(4px);box-shadow:-3px 0 18px rgba(201,168,76,0.12)}
@@ -63,12 +64,12 @@ html,body{height:100%;background:var(--bg)}
 .choice.ready .rdy{opacity:.9}
 .type-row{display:flex;gap:8px;width:100%;margin-top:14px}
 .type-row input{flex:1;background:rgba(154,128,72,0.06);border:1px solid rgba(154,128,72,0.3);
-  border-radius:11px;color:var(--ink);font-family:'Noto Serif SC',serif;font-size:14px;padding:13px 15px;outline:none}
+  border-radius:11px;color:var(--ink);font-family:'Noto Serif SC','Songti SC','SimSun',serif;font-size:14px;padding:13px 15px;outline:none}
 .type-row button{background:linear-gradient(180deg,rgba(201,168,76,0.22),rgba(154,128,72,0.08));
   border:1px solid var(--gold-dim);color:var(--gold-b);border-radius:11px;padding:0 22px;cursor:pointer;
-  font-family:'Noto Serif SC',serif;letter-spacing:3px}
+  font-family:'Noto Serif SC','Songti SC','SimSun',serif;letter-spacing:3px}
 .ending{text-align:center;color:var(--gold-b);letter-spacing:8px;font-size:1.15rem;margin:22px 0;
-  font-family:'Noto Serif SC',serif;text-shadow:0 2px 20px rgba(201,168,76,0.3)}
+  font-family:'Noto Serif SC','Songti SC','SimSun',serif;text-shadow:0 2px 20px rgba(201,168,76,0.3)}
 #overlay{position:fixed;inset:0;z-index:60;background:radial-gradient(circle at 50% 40%,#141009,#070504);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .9s}
 #overlay.hide{opacity:0;pointer-events:none}
@@ -76,7 +77,7 @@ html,body{height:100%;background:var(--bg)}
 .ov-title{font-size:2rem;font-weight:600;color:var(--gold);letter-spacing:12px;text-indent:12px;margin-bottom:14px;
   text-shadow:0 3px 30px rgba(201,168,76,0.3)}
 .start-btn{border:1px solid var(--gold-dim);background:linear-gradient(180deg,rgba(201,168,76,0.14),rgba(154,128,72,0.04));
-  color:var(--gold-b);font-family:'Noto Serif SC',serif;font-size:15px;letter-spacing:7px;text-indent:7px;
+  color:var(--gold-b);font-family:'Noto Serif SC','Songti SC','SimSun',serif;font-size:15px;letter-spacing:7px;text-indent:7px;
   padding:17px 46px;border-radius:40px;cursor:pointer;transition:all .3s;animation:pulse 3s ease-in-out infinite}
 .start-btn:hover{background:linear-gradient(180deg,rgba(201,168,76,0.3),rgba(154,128,72,0.1));border-color:var(--gold)}
 .ov-hint{font-family:'Cinzel',serif;font-size:10px;letter-spacing:4px;color:var(--ink-dim);margin-top:6px}
